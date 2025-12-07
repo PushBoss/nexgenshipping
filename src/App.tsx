@@ -325,12 +325,13 @@ export default function App() {
   useEffect(() => {
     const checkSession = async () => {
       if (config.useSupabase) {
-        const user = await authService.getCurrentUser();
+        // Import directAuth dynamically
+        const { directAuth } = await import('./utils/directAuth');
+        const user = directAuth.getCurrentSession();
         if (user) {
-          const isAdmin = await authService.isAdmin();
           setIsLoggedIn(true);
-          setUserEmail(user.email);
-          setIsAdmin(isAdmin);
+          setUserEmail(user.email || '');
+          setIsAdmin(user.is_admin || false);
           if (config.debugMode) {
             console.log('✅ Session restored:', user.email);
           }
@@ -340,26 +341,27 @@ export default function App() {
 
     checkSession();
 
-    // Listen for auth state changes
+    // Listen for auth state changes (polling for direct auth)
     if (config.useSupabase) {
-      const subscription = authService.onAuthStateChange(async (user) => {
-        if (user) {
-          const isAdmin = await authService.isAdmin();
+      const interval = setInterval(async () => {
+        const { directAuth } = await import('./utils/directAuth');
+        const user = directAuth.getCurrentSession();
+        if (user && !isLoggedIn) {
           setIsLoggedIn(true);
-          setUserEmail(user.email);
-          setIsAdmin(isAdmin);
-        } else {
+          setUserEmail(user.email || '');
+          setIsAdmin(user.is_admin || false);
+        } else if (!user && isLoggedIn) {
           setIsLoggedIn(false);
           setUserEmail('');
           setIsAdmin(false);
         }
-      });
+      }, 1000); // Check every second
 
       return () => {
-        subscription.unsubscribe();
+        clearInterval(interval);
       };
     }
-  }, []);
+  }, [isLoggedIn]);
 
   // Load products from Supabase on app startup
   useEffect(() => {
@@ -476,8 +478,16 @@ export default function App() {
         console.log('🗑️ Deleting product from backend:', id);
         // Hard delete from Supabase backend (permanent removal)
         await productsService.hardDelete(id);
-        setProducts((prev) => prev.filter((product) => product.id !== id));
+        
+        // Reload products from backend to ensure sync
+        console.log('🔄 Reloading products from backend...');
+        const updatedProducts = await productsService.getAll();
+        setProducts(updatedProducts);
+        
         toast.success('Product deleted successfully from backend!');
+        if (config.debugMode) {
+          console.log(`✅ Products reloaded: ${updatedProducts.length} items`);
+        }
       } else {
         // Fallback to local state only
         setProducts((prev) => prev.filter((product) => product.id !== id));
