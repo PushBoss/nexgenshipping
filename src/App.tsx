@@ -473,19 +473,22 @@ export default function App() {
   const handleDeleteProduct = async (id: string) => {
     try {
       if (config.useSupabase) {
+        console.log('🗑️ Deleting product from backend:', id);
         // Hard delete from Supabase backend (permanent removal)
         await productsService.hardDelete(id);
         setProducts((prev) => prev.filter((product) => product.id !== id));
-        toast.success('Product deleted successfully!');
+        toast.success('Product deleted successfully from backend!');
       } else {
         // Fallback to local state only
         setProducts((prev) => prev.filter((product) => product.id !== id));
+        toast.success('Product deleted locally!');
       }
     } catch (error) {
-      console.error('Failed to delete product from backend:', error);
-      // Fallback to local state
+      console.error('❌ Failed to delete product from backend:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      // Still remove from local state
       setProducts((prev) => prev.filter((product) => product.id !== id));
-      toast.warning('Product deleted locally (backend sync failed)');
+      toast.error(`Backend sync failed: ${errorMessage}. Product deleted locally only.`);
     }
   };
 
