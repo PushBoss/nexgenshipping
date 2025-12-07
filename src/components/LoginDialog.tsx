@@ -1,0 +1,303 @@
+import { useState } from 'react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { toast } from 'sonner@2.0.3';
+import { authService } from '../utils/authService';
+import { directAuth } from '../utils/directAuth';
+import { config } from '../utils/config';
+import logoImage from '../assets/nexgen-logo-new.png';
+
+interface LoginDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onLogin: (email: string, isAdmin: boolean) => void;
+}
+
+export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
+  const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  // Sign in state
+  const [signInEmail, setSignInEmail] = useState('');
+  const [signInPassword, setSignInPassword] = useState('');
+  
+  // Sign up state
+  const [signUpEmail, setSignUpEmail] = useState('');
+  const [signUpPassword, setSignUpPassword] = useState('');
+  const [signUpConfirmPassword, setSignUpConfirmPassword] = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+
+  const resetForms = () => {
+    setSignInEmail('');
+    setSignInPassword('');
+    setSignUpEmail('');
+    setSignUpPassword('');
+    setSignUpConfirmPassword('');
+    setFirstName('');
+    setLastName('');
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!signInEmail || !signInPassword) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      if (config.useSupabase) {
+        console.log('🔵 Using Direct Auth (CORS-free)');
+        // Use direct database authentication to bypass CORS
+        const result = await directAuth.signIn(signInEmail, signInPassword);
+        
+        if (result.success && result.user) {
+          const isAdmin = result.user.is_admin || false;
+          
+          onLogin(result.user.email, isAdmin);
+          toast.success(`Welcome back${isAdmin ? ', Admin' : ''}!`);
+          onOpenChange(false);
+          resetForms();
+        } else {
+          toast.error(result.error || 'Invalid email or password');
+        }
+      } else {
+        // Mock authentication (fallback)
+        if (signInEmail === 'admin@nexgenshipping.net' && signInPassword === 'admin123') {
+          onLogin(signInEmail, true);
+          toast.success('Welcome back, Admin!');
+        } else {
+          onLogin(signInEmail, false);
+          toast.success('Signed in successfully!');
+        }
+        onOpenChange(false);
+        resetForms();
+      }
+    } catch (error) {
+      console.error('Sign in error:', error);
+      toast.error('An error occurred during sign in');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignUp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log('🔵 Sign up form submitted');
+    
+    if (!signUpEmail || !signUpPassword || !signUpConfirmPassword) {
+      toast.error('Please fill in all fields');
+      return;
+    }
+
+    if (signUpPassword !== signUpConfirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
+    if (signUpPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
+    setIsLoading(true);
+    console.log('🔵 Starting sign up process for:', signUpEmail);
+
+    try {
+      if (config.useSupabase) {
+        console.log('🔵 Using Direct Auth (CORS-free)');
+        // Use direct database authentication to bypass CORS
+        const result = await directAuth.signUp(signUpEmail, signUpPassword, {
+          firstName,
+          lastName,
+        });
+        
+        console.log('🔵 Sign up result:', result);
+        
+        if (result.success) {
+          toast.success('Account created successfully!', {
+            duration: 3000,
+          });
+          // Auto sign in after signup
+          onLogin(result.user!.email, result.user!.is_admin || false);
+          onOpenChange(false);
+          resetForms();
+        } else {
+          console.error('❌ Sign up failed:', result.error);
+          toast.error(result.error || 'Failed to create account');
+        }
+      } else {
+        // Mock registration (fallback)
+        console.log('🔵 Using mock authentication');
+        toast.success('Account created successfully!');
+        onLogin(signUpEmail, false);
+        onOpenChange(false);
+        resetForms();
+      }
+    } catch (error) {
+      console.error('❌ Sign up error:', error);
+      toast.error('An error occurred during sign up');
+    } finally {
+      setIsLoading(false);
+      console.log('🔵 Sign up process completed');
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <div className="flex justify-center mb-4">
+            <img src={logoImage} alt="NEX-GEN Shipping Agency" className="h-16 w-auto" />
+          </div>
+          <DialogTitle className="text-center text-[#003366]">Welcome to NEX-GEN Shipping</DialogTitle>
+          <DialogDescription className="text-center">
+            Sign in or create an account to start shopping
+          </DialogDescription>
+        </DialogHeader>
+        
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'signin' | 'signup')}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="signin">Sign In</TabsTrigger>
+            <TabsTrigger value="signup">Sign Up</TabsTrigger>
+          </TabsList>
+          
+          {/* Sign In Tab */}
+          <TabsContent value="signin">
+            <form onSubmit={handleSignIn} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="signin-email">Email</Label>
+                <Input
+                  id="signin-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={signInEmail}
+                  onChange={(e) => setSignInEmail(e.target.value)}
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="signin-password">Password</Label>
+                <Input
+                  id="signin-password"
+                  type="password"
+                  placeholder="Enter your password"
+                  value={signInPassword}
+                  onChange={(e) => setSignInPassword(e.target.value)}
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full bg-[#DC143C] hover:bg-[#B01030] text-white"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Signing in...' : 'Sign In'}
+              </Button>
+              
+              {!config.useSupabase && (
+                <div className="text-center text-xs text-gray-600 mt-2">
+                  <div>Demo mode: Use any email/password</div>
+                  <div className="text-[#DC143C]">Admin: admin@nexgenshipping.net / admin123</div>
+                </div>
+              )}
+            </form>
+          </TabsContent>
+          
+          {/* Sign Up Tab */}
+          <TabsContent value="signup">
+            <form onSubmit={handleSignUp} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name</Label>
+                  <Input
+                    id="firstName"
+                    type="text"
+                    placeholder="John"
+                    value={firstName}
+                    onChange={(e) => setFirstName(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name</Label>
+                  <Input
+                    id="lastName"
+                    type="text"
+                    placeholder="Doe"
+                    value={lastName}
+                    onChange={(e) => setLastName(e.target.value)}
+                    disabled={isLoading}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="signup-email">Email</Label>
+                <Input
+                  id="signup-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={signUpEmail}
+                  onChange={(e) => setSignUpEmail(e.target.value)}
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="signup-password">Password</Label>
+                <Input
+                  id="signup-password"
+                  type="password"
+                  placeholder="At least 6 characters"
+                  value={signUpPassword}
+                  onChange={(e) => setSignUpPassword(e.target.value)}
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="signup-confirm">Confirm Password</Label>
+                <Input
+                  id="signup-confirm"
+                  type="password"
+                  placeholder="Re-enter password"
+                  value={signUpConfirmPassword}
+                  onChange={(e) => setSignUpConfirmPassword(e.target.value)}
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full bg-[#003366] hover:bg-[#002244] text-white"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Creating account...' : 'Create Account'}
+              </Button>
+              
+              {config.useSupabase && (
+                <p className="text-xs text-center text-gray-600">
+                  By creating an account, you'll receive a verification email
+                </p>
+              )}
+            </form>
+          </TabsContent>
+        </Tabs>
+      </DialogContent>
+    </Dialog>
+  );
+}

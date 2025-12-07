@@ -1,0 +1,231 @@
+import { Search, ShoppingCart, User, ChevronDown, Menu } from 'lucide-react';
+import { Button } from './ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from './ui/dropdown-menu';
+import logoImage from '../assets/nexgen-logo-new.png';
+
+interface HeaderProps {
+  isLoggedIn: boolean;
+  onLoginClick: () => void;
+  onLogout: () => void;
+  cartCount: number;
+  selectedCategory: string;
+  onCategoryChange: (category: string) => void;
+  searchQuery: string;
+  onSearchChange: (query: string) => void;
+  onSearchSubmit: () => void;
+  currentPage: string;
+  onNavigate: (page: 'home' | 'about' | 'contact' | 'cart' | 'privacy' | 'returns' | 'orders' | 'wishlist' | 'account') => void;
+  onOpenCategoryBrowser: () => void;
+}
+
+export function Header({
+  isLoggedIn,
+  onLoginClick,
+  onLogout,
+  cartCount,
+  selectedCategory,
+  onCategoryChange,
+  searchQuery,
+  onSearchChange,
+  onSearchSubmit,
+  currentPage,
+  onNavigate,
+  onOpenCategoryBrowser,
+}: HeaderProps) {
+  const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      onSearchSubmit();
+    }
+  };
+
+  return (
+    <header className="bg-[#131921] text-white">
+      {/* Top header */}
+      <div className="bg-[#EAEDED] border-b border-gray-300">
+        <div className="max-w-[1500px] mx-auto px-2 sm:px-4">
+          <div className="flex items-center gap-1.5 sm:gap-3 md:gap-6 py-2 sm:py-3">
+            {/* Logo */}
+            <div 
+              onClick={() => onNavigate('home')}
+              className="cursor-pointer hover:opacity-80 transition-opacity shrink-0"
+            >
+              <img 
+                src={logoImage} 
+                alt="NEX-GEN Shipping Agency" 
+                className="h-12 sm:h-14 md:h-16 w-auto"
+              />
+            </div>
+
+            {/* Search bar */}
+            <div className="flex-1 min-w-0 max-w-3xl">
+              <div className="flex items-center">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="hidden md:flex bg-[#f3f3f3] text-gray-700 px-3 py-2.5 rounded-l-md hover:bg-gray-200 items-center gap-1 border-r border-gray-300">
+                      <span className="text-sm">All</span>
+                      <ChevronDown className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent>
+                    <DropdownMenuItem onClick={() => onCategoryChange('all')}>All Categories</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onCategoryChange('baby')}>Baby Products</DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onCategoryChange('pharmaceutical')}>Pharmaceuticals</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <input
+                  type="text"
+                  placeholder="Search..."
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange(e.target.value)}
+                  onKeyPress={handleSearchKeyPress}
+                  className="flex-1 min-w-0 px-2 sm:px-3 md:px-4 py-2 md:py-2.5 text-gray-100 bg-[#232F3E] focus:outline-none focus:ring-2 focus:ring-[#FF9900] placeholder-gray-400 rounded-l-md md:rounded-l-none text-xs sm:text-sm md:text-base"
+                />
+                <button 
+                  onClick={onSearchSubmit}
+                  className="bg-[#FF9900] hover:bg-[#F08000] px-2 sm:px-3 md:px-4 py-2 md:py-2.5 rounded-r-md transition-colors shrink-0"
+                >
+                  <Search className="h-4 w-4 md:h-5 md:w-5 text-[#232F3E]" />
+                </button>
+              </div>
+            </div>
+
+            {/* Right side */}
+            <div className="flex items-center gap-1 sm:gap-2 md:gap-6 shrink-0">
+              {/* Account */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="hidden md:flex flex-col items-start hover:border border-[#003366] rounded px-2 py-1 transition-all text-[#003366]">
+                    <span className="text-xs">Hello, {isLoggedIn ? 'User' : 'Sign in'}</span>
+                    <div className="flex items-center gap-1">
+                      <span className="text-sm">Account</span>
+                      <ChevronDown className="h-4 w-4" />
+                    </div>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {!isLoggedIn ? (
+                    <>
+                      <DropdownMenuItem onClick={onLoginClick}>
+                        <User className="h-4 w-4 mr-2" />
+                        Sign In
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <DropdownMenuItem onClick={() => onNavigate('account')}>Your Account</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onNavigate('orders')}>Orders</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onNavigate('wishlist')}>Wishlist</DropdownMenuItem>
+                      <DropdownMenuItem onClick={onLogout}>Sign Out</DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Mobile Account Icon */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="md:hidden p-1.5 sm:p-2 hover:bg-gray-200 rounded transition-all text-[#003366]">
+                    <User className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  {!isLoggedIn ? (
+                    <>
+                      <DropdownMenuItem onClick={onLoginClick}>
+                        <User className="h-4 w-4 mr-2" />
+                        Sign In
+                      </DropdownMenuItem>
+                    </>
+                  ) : (
+                    <>
+                      <DropdownMenuItem onClick={() => onNavigate('account')}>Your Account</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onNavigate('orders')}>Orders</DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onNavigate('wishlist')}>Wishlist</DropdownMenuItem>
+                      <DropdownMenuItem onClick={onLogout}>Sign Out</DropdownMenuItem>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              {/* Cart */}
+              <button 
+                onClick={() => onNavigate('cart')}
+                className="flex items-center gap-1 md:gap-2 hover:bg-gray-200 rounded p-1.5 sm:px-2 sm:py-1 transition-all relative text-[#003366]"
+              >
+                <div className="relative">
+                  <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 bg-[#DC143C] text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs font-bold">
+                      {cartCount}
+                    </span>
+                  )}
+                </div>
+                <span className="hidden md:inline text-sm">Cart</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <div className="bg-[#003366]">
+        <div className="max-w-[1500px] mx-auto px-4">
+          <nav className="flex items-center gap-3 md:gap-6 py-2 text-xs md:text-sm overflow-x-auto scrollbar-hide">
+            <button
+              onClick={onOpenCategoryBrowser}
+              className="hover:bg-[#004080] rounded px-2 py-1 transition-all whitespace-nowrap flex items-center gap-1"
+            >
+              <Menu className="h-4 w-4" />
+              Shop by Category
+            </button>
+            <button
+              onClick={() => onCategoryChange('all')}
+              className={`hover:bg-[#004080] rounded px-2 py-1 transition-all whitespace-nowrap ${
+                selectedCategory === 'all' && currentPage === 'home' ? 'bg-[#004080]' : ''
+              }`}
+            >
+              All Products
+            </button>
+            <button
+              onClick={() => onCategoryChange('baby')}
+              className={`hover:bg-[#004080] rounded px-2 py-1 transition-all whitespace-nowrap ${
+                selectedCategory === 'baby' && currentPage === 'home' ? 'bg-[#004080]' : ''
+              }`}
+            >
+              Baby Products
+            </button>
+            <button
+              onClick={() => onCategoryChange('pharmaceutical')}
+              className={`hover:bg-[#004080] rounded px-2 py-1 transition-all whitespace-nowrap ${
+                selectedCategory === 'pharmaceutical' && currentPage === 'home' ? 'bg-[#004080]' : ''
+              }`}
+            >
+              Pharmaceuticals
+            </button>
+            <button 
+              onClick={() => onNavigate('about')}
+              className={`hover:bg-[#004080] rounded px-2 py-1 transition-all whitespace-nowrap ${
+                currentPage === 'about' ? 'bg-[#004080]' : ''
+              }`}
+            >
+              About Us
+            </button>
+            <button 
+              onClick={() => onNavigate('contact')}
+              className={`hover:bg-[#004080] rounded px-2 py-1 transition-all whitespace-nowrap ${
+                currentPage === 'contact' ? 'bg-[#004080]' : ''
+              }`}
+            >
+              Contact Us
+            </button>
+          </nav>
+        </div>
+      </div>
+    </header>
+  );
+}

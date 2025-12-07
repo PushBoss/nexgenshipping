@@ -1,0 +1,21 @@
+#!/bin/bash
+
+echo "🚀 Setting up CORS-free authentication..."
+echo ""
+echo "📋 Please run this SQL in your Supabase SQL Editor:"
+echo "   Dashboard → SQL Editor → New Query"
+echo ""
+echo "================================================"
+cat supabase/migrations/003_direct_auth.sql
+echo "================================================"
+echo ""
+echo "✅ After running the SQL, you can:"
+echo "   1. Sign up without CORS issues"
+echo "   2. Sign in using email/password"
+echo "   3. Access admin features"
+echo ""
+echo "🔐 Authentication bypasses Supabase Auth and uses direct database access"
+echo "   - Passwords are SHA-256 hashed"
+echo "   - Sessions stored in localStorage"
+echo "   - No email verification required"
+echo ""

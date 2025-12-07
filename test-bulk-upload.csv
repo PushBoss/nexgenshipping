@@ -1,0 +1,6 @@
+name,description,category,categoryId,price,Packaged,unitPrice,stockCount,soldCount,rating,reviewCount,image,inStock,badge
+Test Baby Onesie,Soft cotton onesie for newborns,baby,apparel-accessories,25.99,/each,,150,5,4.5,12,https://www.dropbox.com/scl/fi/hsjf75m1zu0qmgv389baq/Benadryl-24-s-Liquid-Gels.jpeg?rlkey=vgemnhx9q7fvajc7bd2xpi3wh&st=ptyl6fhc&dl=0,TRUE,New
+Test Baby Bottle,BPA-free feeding bottle 8oz,baby,baby-feeding,15.50,/each,,200,10,4.8,25,https://www.dropbox.com/scl/fi/hsjf75m1zu0qmgv389baq/Benadryl-24-s-Liquid-Gels.jpeg?rlkey=vgemnhx9q7fvajc7bd2xpi3wh&st=ptyl6fhc&dl=1,TRUE,Best Seller
+Test Baby Rattle,Colorful musical rattle toy,baby,baby-toys-entertainment,12.99,/each,,300,15,4.6,18,https://www.dropbox.com/scl/fi/hsjf75m1zu0qmgv389baq/Benadryl-24-s-Liquid-Gels.jpeg?rlkey=vgemnhx9q7fvajc7bd2xpi3wh&st=ptyl6fhc&dl=2,TRUE,default
+Test Tylenol 500mg,Pain relief acetaminophen tablets,pharmaceutical,otc-medicines,18.75,/bottle,,250,8,4.7,30,https://www.dropbox.com/scl/fi/hsjf75m1zu0qmgv389baq/Benadryl-24-s-Liquid-Gels.jpeg?rlkey=vgemnhx9q7fvajc7bd2xpi3wh&st=ptyl6fhc&dl=3,TRUE,Top Rated
+Test Hand Sanitizer,Antibacterial gel 8oz,pharmaceutical,medicine-eye-care-first-aid,9.99,/bottle,,400,20,4.4,22,https://www.dropbox.com/scl/fi/hsjf75m1zu0qmgv389baq/Benadryl-24-s-Liquid-Gels.jpeg?rlkey=vgemnhx9q7fvajc7bd2xpi3wh&st=ptyl6fhc&dl=4,TRUE,default
