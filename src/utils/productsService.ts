@@ -181,6 +181,7 @@ export const productsService = {
 
   /**
    * Bulk import products
+   * Batches inserts to handle large volumes (e.g., 200+ products)
    */
   async bulkImport(products: Omit<Product, 'id'>[]): Promise<number> {
     if (!config.useSupabase) {
@@ -189,22 +190,64 @@ export const productsService = {
 
     try {
       const productsData = products.map(this.mapToSupabase);
+      const BATCH_SIZE = 50; // Supabase can handle more, but batching prevents timeout issues
+      let totalImported = 0;
+      let allErrors: Error[] = [];
 
-      // Use admin client to bypass RLS policies
-      const { data, error } = await supabaseAdmin
-        .from('products')
-        .insert(productsData as any)
-        .select();
+      // Process in batches
+      for (let i = 0; i < productsData.length; i += BATCH_SIZE) {
+        const batch = productsData.slice(i, i + BATCH_SIZE);
+        const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(productsData.length / BATCH_SIZE);
+        
+        if (config.debugMode) {
+          console.log(`📦 Processing batch ${batchNumber}/${totalBatches} (${batch.length} products)...`);
+        }
 
-      if (error) throw error;
+        try {
+          // Use admin client to bypass RLS policies
+          const { data, error } = await supabaseAdmin
+            .from('products')
+            .insert(batch as any)
+            .select();
 
-      const count = data?.length || 0;
-      
-      if (config.debugMode) {
-        console.log(`✅ Bulk imported ${count} products to Supabase`);
+          if (error) {
+            console.error(`❌ Error in batch ${batchNumber}:`, error);
+            allErrors.push(new Error(`Batch ${batchNumber}: ${error.message}`));
+            continue; // Continue with next batch
+          }
+
+          const batchCount = data?.length || 0;
+          totalImported += batchCount;
+          
+          if (config.debugMode) {
+            console.log(`✅ Batch ${batchNumber} imported: ${batchCount} products`);
+          }
+
+          // Small delay between batches to avoid rate limiting
+          if (i + BATCH_SIZE < productsData.length) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+          }
+        } catch (batchError) {
+          console.error(`❌ Error processing batch ${batchNumber}:`, batchError);
+          allErrors.push(new Error(`Batch ${batchNumber}: ${batchError instanceof Error ? batchError.message : String(batchError)}`));
+        }
       }
 
-      return count;
+      if (config.debugMode) {
+        console.log(`✅ Bulk import complete: ${totalImported}/${productsData.length} products imported`);
+        if (allErrors.length > 0) {
+          console.warn(`⚠️ ${allErrors.length} batches had errors:`, allErrors);
+        }
+      }
+
+      // If we imported at least some products, return success count
+      // If all failed, throw the first error
+      if (totalImported === 0 && allErrors.length > 0) {
+        throw new Error(`Bulk import failed: ${allErrors[0].message}`);
+      }
+
+      return totalImported;
     } catch (error) {
       console.error('Error bulk importing products:', error);
       throw error;
@@ -308,6 +351,7 @@ export const productsService = {
       subcategoryId: data.subcategory_id,
       price: Number(data.price),
       originalPrice: data.original_price ? Number(data.original_price) : undefined,
+      currency: data.currency || 'USD',
       rating: Number(data.rating),
       reviewCount: data.review_count,
       image: data.image_url,
@@ -332,6 +376,8 @@ export const productsService = {
     if (product.subcategoryId !== undefined) mapped.subcategory_id = product.subcategoryId;
     if (product.price !== undefined) mapped.price = product.price;
     if (product.originalPrice !== undefined) mapped.original_price = product.originalPrice;
+    // Always set currency - default to USD if not provided
+    mapped.currency = product.currency || 'USD';
     if (product.rating !== undefined) mapped.rating = product.rating;
     if (product.reviewCount !== undefined) mapped.review_count = product.reviewCount;
     if (product.image !== undefined) mapped.image_url = product.image;

@@ -1,5 +1,5 @@
 import { Search, ShoppingCart, User, ChevronDown, Menu } from 'lucide-react';
-import { Button } from './ui/button';
+import { Currency, CURRENCY_INFO, getUserCurrency, setUserCurrency } from '../utils/currencyService';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -10,6 +10,7 @@ import logoImage from '../assets/nexgen-logo-new.png';
 
 interface HeaderProps {
   isLoggedIn: boolean;
+  userFirstName?: string;
   onLoginClick: () => void;
   onLogout: () => void;
   cartCount: number;
@@ -21,10 +22,13 @@ interface HeaderProps {
   currentPage: string;
   onNavigate: (page: 'home' | 'about' | 'contact' | 'cart' | 'privacy' | 'returns' | 'orders' | 'wishlist' | 'account') => void;
   onOpenCategoryBrowser: () => void;
+  selectedCurrency?: Currency;
+  onCurrencyChange?: (currency: Currency) => void;
 }
 
 export function Header({
   isLoggedIn,
+  userFirstName,
   onLoginClick,
   onLogout,
   cartCount,
@@ -36,10 +40,24 @@ export function Header({
   currentPage,
   onNavigate,
   onOpenCategoryBrowser,
+  selectedCurrency,
+  onCurrencyChange,
 }: HeaderProps) {
+  const currentCurrency = selectedCurrency || getUserCurrency();
+
   const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       onSearchSubmit();
+    }
+  };
+
+  const handleCurrencyChange = (currency: Currency) => {
+    setUserCurrency(currency);
+    if (onCurrencyChange) {
+      onCurrencyChange(currency);
+    } else {
+      // Force page reload to update all prices
+      window.location.reload();
     }
   };
 
@@ -96,11 +114,54 @@ export function Header({
 
             {/* Right side */}
             <div className="flex items-center gap-1 sm:gap-2 md:gap-6 shrink-0">
+              {/* Currency Selector */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex items-center gap-1.5 hover:bg-gray-200 rounded px-2 py-1.5 transition-all text-[#003366]">
+                    <span className="text-lg">{CURRENCY_INFO[currentCurrency].flag}</span>
+                    <span className="hidden sm:inline text-sm font-medium">{currentCurrency}</span>
+                    <ChevronDown className="h-3 w-3 sm:h-4 sm:w-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuItem onClick={() => handleCurrencyChange('USD')}>
+                    <div className="flex items-center gap-2 w-full">
+                      <span className="text-xl">🇺🇸</span>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">USD</span>
+                        <span className="text-xs text-gray-500">US Dollar</span>
+                      </div>
+                      {currentCurrency === 'USD' && <span className="ml-auto">✓</span>}
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleCurrencyChange('JMD')}>
+                    <div className="flex items-center gap-2 w-full">
+                      <span className="text-xl">🇯🇲</span>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">JMD</span>
+                        <span className="text-xs text-gray-500">Jamaican Dollar</span>
+                      </div>
+                      {currentCurrency === 'JMD' && <span className="ml-auto">✓</span>}
+                    </div>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleCurrencyChange('CAD')}>
+                    <div className="flex items-center gap-2 w-full">
+                      <span className="text-xl">🇨🇦</span>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">CAD</span>
+                        <span className="text-xs text-gray-500">Canadian Dollar</span>
+                      </div>
+                      {currentCurrency === 'CAD' && <span className="ml-auto">✓</span>}
+                    </div>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+
               {/* Account */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <button className="hidden md:flex flex-col items-start hover:border border-[#003366] rounded px-2 py-1 transition-all text-[#003366]">
-                    <span className="text-xs">Hello, {isLoggedIn ? 'User' : 'Sign in'}</span>
+                    <span className="text-xs">Hello, {isLoggedIn ? (userFirstName || 'Customer') : 'Sign in'}</span>
                     <div className="flex items-center gap-1">
                       <span className="text-sm">Account</span>
                       <ChevronDown className="h-4 w-4" />

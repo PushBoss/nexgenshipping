@@ -158,6 +158,7 @@ export interface Database {
           price: number;
           original_price: number | null;
           cost_price: number | null;
+          currency: 'USD' | 'JMD' | 'CAD';
           image_url: string;
           rating: number;
           review_count: number;
@@ -180,6 +181,7 @@ export interface Database {
           price: number;
           original_price?: number | null;
           cost_price?: number | null;
+          currency?: 'USD' | 'JMD' | 'CAD';
           image_url: string;
           rating?: number;
           review_count?: number;
@@ -197,6 +199,7 @@ export interface Database {
           name?: string;
           description?: string | null;
           category?: 'baby' | 'pharmaceutical';
+          currency?: 'USD' | 'JMD' | 'CAD';
           category_id?: string | null;
           subcategory_id?: string | null;
           price?: number;

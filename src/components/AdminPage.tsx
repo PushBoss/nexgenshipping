@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Product } from './ProductCard';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -9,17 +9,22 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Badge } from './ui/badge';
 import { Textarea } from './ui/textarea';
-import { toast } from 'sonner@2.0.3';
-import { Plus, Edit, Trash2, Package, Tag, TrendingUp, Percent, Search, Filter, Upload, Download, FileUp, CheckCircle2, AlertCircle, XCircle, Link2, Image, Users } from 'lucide-react';
+import { toast } from 'sonner';
+import Papa from 'papaparse';
+import { Plus, Edit, Trash2, Package, Tag, TrendingUp, Percent, Search, Filter, Upload, Download, FileUp, CheckCircle2, AlertCircle, XCircle, Link2, Image, Users, CreditCard, Settings } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from './ui/dialog';
 import { Alert, AlertDescription } from './ui/alert';
 import { SupabaseStatus } from './SupabaseStatus';
 import { DataManagementPanel } from './DataManagementPanel';
 import { UserManagementPanel } from './UserManagementPanel';
+import { supabase } from '../utils/supabaseClient';
+import { paymentGatewayService, PaymentGatewaySettings } from '../utils/paymentGatewayService';
+import { Switch } from './ui/switch';
 
 interface AdminPageProps {
   products: Product[];
   onAddProduct: (product: Omit<Product, 'id'>) => void;
+  onBulkImport?: (products: Omit<Product, 'id'>[]) => Promise<number>;
   onUpdateProduct: (id: string, updates: Partial<Product>) => void;
   onDeleteProduct: (id: string) => void;
   onCreateSale: (productId: string, discountPercent: number) => void;
@@ -28,17 +33,19 @@ interface AdminPageProps {
 export function AdminPage({
   products,
   onAddProduct,
+  onBulkImport,
   onUpdateProduct,
   onDeleteProduct,
   onCreateSale,
 }: AdminPageProps) {
+  // Component state
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isSaleDialogOpen, setIsSaleDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [saleProduct, setSaleProduct] = useState<Product | null>(null);
   const [discountPercent, setDiscountPercent] = useState('10');
-  
+
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'baby' | 'pharmaceutical'>('all');
@@ -51,6 +58,20 @@ export function AdminPage({
   const [isProcessingCsv, setIsProcessingCsv] = useState(false);
   const [showCsvPreview, setShowCsvPreview] = useState(false);
 
+  // Payment Settings State
+  const [paymentSettings, setPaymentSettings] = useState<PaymentGatewaySettings | null>(null);
+  const [paymentFormData, setPaymentFormData] = useState({
+    merchant_id: '',
+    secret_key: '',
+    client_key: '',
+    environment: 'sandbox' as 'sandbox' | 'production',
+    fee_handling: 'merchant' as 'merchant' | 'customer',
+    platform_fee_percentage: '2.90',
+    is_enabled: false,
+  });
+  const [isLoadingPaymentSettings, setIsLoadingPaymentSettings] = useState(false);
+  const [isSavingPaymentSettings, setIsSavingPaymentSettings] = useState(false);
+
   // Bulk Delete state
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
   const [bulkDeleteAction, setBulkDeleteAction] = useState<'baby' | 'pharmaceutical' | 'purge' | null>(null);
@@ -59,13 +80,14 @@ export function AdminPage({
   const [imageInputType, setImageInputType] = useState<'url' | 'file'>('url');
   const [editImageInputType, setEditImageInputType] = useState<'url' | 'file'>('url');
 
-  // New product form state
-  const [newProduct, setNewProduct] = useState({
+  // New product state
+  const [newProduct, setNewProduct] = useState<any>({
     name: '',
     description: '',
-    category: 'baby' as 'baby' | 'pharmaceutical',
+    category: 'baby',
     categoryId: 'apparel-accessories',
     price: '',
+    currency: 'USD',
     costPrice: '',
     stockCount: '',
     soldCount: '0',
@@ -73,121 +95,63 @@ export function AdminPage({
     reviewCount: '100',
     image: '',
     inStock: true,
-    badge: 'none' as 'none' | 'Best Seller' | 'Top Rated' | 'New' | 'Standard',
+    badge: 'none',
   });
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean = false) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please upload an image file');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      if (isEdit && editingProduct) {
-        setEditingProduct({ ...editingProduct, image: dataUrl });
-      } else {
-        setNewProduct({ ...newProduct, image: dataUrl });
-      }
-      toast.success('Image uploaded successfully!');
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const handleAddProduct = () => {
-    if (!newProduct.name || !newProduct.price) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-
-    const productToAdd = {
-      ...newProduct,
-      price: parseFloat(newProduct.price),
-      costPrice: newProduct.costPrice ? parseFloat(newProduct.costPrice) : undefined,
-      stockCount: newProduct.stockCount ? parseInt(newProduct.stockCount) : undefined,
-      soldCount: parseInt(newProduct.soldCount) || 0,
-      rating: parseFloat(newProduct.rating),
-      reviewCount: parseInt(newProduct.reviewCount),
-      image: convertDropboxUrl(newProduct.image), // Auto-convert Dropbox URLs
-      badge: newProduct.badge === 'none' ? undefined : newProduct.badge,
-    };
-
-    onAddProduct(productToAdd);
-    toast.success('Product added successfully!');
-    setIsAddDialogOpen(false);
-    setImageInputType('url');
-    setNewProduct({
-      name: '',
-      description: '',
-      category: 'baby',
-      categoryId: 'apparel-accessories',
-      price: '',
-      costPrice: '',
-      stockCount: '',
-      soldCount: '0',
-      rating: '4.5',
-      reviewCount: '100',
-      image: '',
-      inStock: true,
-      badge: 'none',
-    });
-  };
-
-  const handleUpdateBadge = (product: Product, badge: 'Best Seller' | 'Top Rated' | 'New' | 'none') => {
-    onUpdateProduct(product.id, { badge: badge === 'none' ? undefined : badge });
-    toast.success(`Badge updated for ${product.name}`);
-  };
-
-  const handleCreateSale = () => {
-    if (!saleProduct) return;
-
-    const discount = parseFloat(discountPercent);
-    if (discount <= 0 || discount >= 100) {
-      toast.error('Discount must be between 0 and 100%');
-      return;
-    }
-
-    onCreateSale(saleProduct.id, discount);
-    toast.success(`Sale created: ${discount}% off ${saleProduct.name}`);
-    setIsSaleDialogOpen(false);
-    setSaleProduct(null);
-    setDiscountPercent('10');
-  };
-
-  const handleEditProduct = () => {
-    if (!editingProduct) return;
-
-    if (!editingProduct.name || !editingProduct.price) {
-      toast.error('Please fill in all required fields');
-      return;
-    }
-
+  // Helper: upload image to Supabase storage with unique filename
+  const uploadImageToStorage = async (imageUrl: string, productName: string, index?: number): Promise<string> => {
     try {
-      onUpdateProduct(editingProduct.id, {
-        name: editingProduct.name,
-        category: editingProduct.category,
-        categoryId: editingProduct.categoryId,
-        price: editingProduct.price,
-        rating: editingProduct.rating,
-        reviewCount: editingProduct.reviewCount,
-        image: convertDropboxUrl(editingProduct.image), // Auto-convert Dropbox URLs
-        inStock: editingProduct.inStock,
-        badge: editingProduct.badge,
-      });
+      if (!imageUrl) return imageUrl;
+      if (imageUrl.includes('supabase.co')) return imageUrl;
 
-      toast.success('Product updated successfully!');
-      setIsEditDialogOpen(false);
-      setEditingProduct(null);
-    } catch (error) {
-      console.error('Error updating product:', error);
-      toast.error('Failed to update product');
+      // Generate unique filename with timestamp and index if provided
+      const timestamp = Date.now();
+      const indexSuffix = index !== undefined ? `-${index}` : '';
+      const sanitizedName = productName.toLowerCase().replace(/[^a-z0-9]/g, '-').substring(0, 50);
+      
+      // Determine file extension from URL or default to png
+      let extension = 'png';
+      if (imageUrl.includes('.')) {
+        const urlExtension = imageUrl.split('.').pop()?.split('?')[0]?.toLowerCase();
+        if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(urlExtension || '')) {
+          extension = urlExtension || 'png';
+        }
+      }
+      
+      const fileName = `${sanitizedName}-${timestamp}${indexSuffix}.${extension}`;
+
+      // Data URL
+      if (imageUrl.startsWith('data:image/')) {
+        const res = await fetch(imageUrl);
+        const blob = await res.blob();
+        const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
+        if (error) throw error;
+        const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
+        return data.publicUrl || imageUrl;
+      }
+
+      // HTTP URL
+      if (imageUrl.startsWith('http')) {
+        try {
+          const res = await fetch(imageUrl);
+          if (!res.ok) throw new Error('Failed to fetch image');
+          const blob = await res.blob();
+          const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
+          if (error) throw error;
+          const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
+          return data.publicUrl || imageUrl;
+        } catch (err) {
+          console.warn(`Failed to upload image for ${productName}:`, err);
+          return imageUrl;
+        }
+      }
+      return imageUrl;
+    } catch (err) {
+      console.error('Error uploading image:', err);
+      return imageUrl;
     }
   };
-
+  
   const handleOpenEditDialog = (product: Product) => {
     try {
       setEditingProduct({ ...product });
@@ -199,10 +163,103 @@ export function AdminPage({
     }
   };
 
+    // Handle editing product (save changes)
+    const handleEditProduct = async () => {
+      if (!editingProduct) return;
+
+      if (!editingProduct.name || !editingProduct.price) {
+        toast.error('Please fill in all required fields');
+        return;
+      }
+
+      try {
+        let imageUrl = convertDropboxUrl(editingProduct.image || '');
+        if (imageUrl && imageUrl.trim()) {
+          imageUrl = await uploadImageToStorage(imageUrl, editingProduct.name);
+        }
+
+        onUpdateProduct(editingProduct.id, {
+          name: editingProduct.name,
+          category: editingProduct.category,
+          categoryId: editingProduct.categoryId,
+          price: editingProduct.price,
+          rating: editingProduct.rating,
+          reviewCount: editingProduct.reviewCount,
+          image: imageUrl,
+          inStock: editingProduct.inStock,
+          badge: editingProduct.badge,
+        });
+
+        toast.success('Product updated successfully!');
+        setIsEditDialogOpen(false);
+        setEditingProduct(null);
+      } catch (error) {
+        console.error('Error updating product:', error);
+        toast.error('Failed to update product');
+      }
+    };
+
+
   const handleDeleteProduct = (product: Product) => {
     if (window.confirm(`Are you sure you want to delete "${product.name}"?`)) {
       onDeleteProduct(product.id);
       toast.success('Product deleted successfully');
+    }
+  };
+
+  // Handle adding a new product
+  const handleAddProduct = async () => {
+    if (!newProduct.name || newProduct.name.trim() === '') {
+      toast.error('Product name is required');
+      return;
+    }
+
+    try {
+      let imageUrl = convertDropboxUrl(newProduct.image || '');
+      if (imageUrl && imageUrl.trim()) {
+        imageUrl = await uploadImageToStorage(imageUrl, newProduct.name);
+      }
+
+      // Build sanitized product object
+      const productToAdd: Omit<Product, 'id'> = {
+        name: newProduct.name,
+        description: newProduct.description || '',
+        category: newProduct.category || 'baby',
+        categoryId: newProduct.categoryId || 'apparel-accessories',
+        price: parseFloat(newProduct.price) || 9.99,
+        currency: newProduct.currency || 'USD',
+        rating: parseFloat(newProduct.rating) || 4.5,
+        reviewCount: parseInt(newProduct.reviewCount) || 100,
+        image: imageUrl || '',
+        inStock: !!newProduct.inStock,
+        badge: newProduct.badge && newProduct.badge !== 'none' ? newProduct.badge : undefined,
+        soldCount: parseInt(newProduct.soldCount) || 0,
+        costPrice: newProduct.costPrice ? parseFloat(newProduct.costPrice) : undefined,
+        stockCount: newProduct.stockCount ? parseInt(newProduct.stockCount) : undefined,
+      } as Omit<Product, 'id'>;
+
+      onAddProduct(productToAdd);
+      toast.success('Product added');
+      setIsAddDialogOpen(false);
+      setNewProduct({
+        name: '',
+        description: '',
+        category: 'baby',
+        categoryId: 'apparel-accessories',
+        price: '',
+        currency: 'USD',
+        costPrice: '',
+        stockCount: '',
+        soldCount: '0',
+        rating: '4.5',
+        reviewCount: '100',
+        image: '',
+        inStock: true,
+        badge: 'none',
+      });
+    } catch (error) {
+      console.error('Error adding product:', error);
+      toast.error('Failed to add product');
     }
   };
 
@@ -279,37 +336,22 @@ export function AdminPage({
     reader.readAsText(file);
   };
 
-  const parseCsvLine = (line: string): string[] => {
-    const result: string[] = [];
-    let current = '';
-    let inQuotes = false;
-    
-    for (let i = 0; i < line.length; i++) {
-      const char = line[i];
-      const nextChar = line[i + 1];
-      
-      if (char === '"') {
-        if (inQuotes && nextChar === '"') {
-          // Escaped quote
-          current += '"';
-          i++; // Skip next quote
-        } else {
-          // Toggle quote state
-          inQuotes = !inQuotes;
-        }
-      } else if (char === ',' && !inQuotes) {
-        // Field separator
-        result.push(current.trim());
-        current = '';
+  // Image upload for Add or Edit dialog (reads file and sets data URL locally)
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>, isEdit: boolean) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (isEdit) {
+        if (!editingProduct) return;
+        setEditingProduct({ ...editingProduct, image: dataUrl });
       } else {
-        current += char;
+        setNewProduct({ ...newProduct, image: dataUrl });
       }
-    }
-    
-    // Add the last field
-    result.push(current.trim());
-    
-    return result;
+    };
+    reader.readAsDataURL(file);
   };
 
   // Duplicate detection function
@@ -344,18 +386,24 @@ export function AdminPage({
     const parsedData: any[] = [];
 
     try {
-      const lines = csvText.trim().split('\n');
-      if (lines.length < 2) {
-        errors.push('CSV file must contain a header row and at least one data row');
+      const result = Papa.parse(csvText, {
+        header: true,
+        skipEmptyLines: true,
+        transformHeader: (header: string) => header.trim().toLowerCase().replace(/[^a-z0-9]/g, ''),
+      });
+
+      if (result.errors.length > 0) {
+        errors.push(...result.errors.map(e => `CSV parsing error: ${e.message}`));
         setCsvErrors(errors);
         setCsvWarnings([]);
         setIsProcessingCsv(false);
         return;
       }
 
-      const headers = parseCsvLine(lines[0]).map(h => h.trim().toLowerCase().replace(/[^a-z0-9]/g, ''));
+      const data = result.data as any[];
 
       // Validate ONLY the absolute minimum required header (name)
+      const headers = result.meta.fields || [];
       const requiredHeaders = ['name'];
       const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
       if (missingHeaders.length > 0) {
@@ -372,29 +420,16 @@ export function AdminPage({
         warnings.push('⚠️ Price column not found - all products will use default price ($9.99)');
       }
 
-      // Parse each data row
-      for (let i = 1; i < lines.length; i++) {
-        const line = lines[i].trim();
-        if (!line) continue; // Skip empty lines
+      // Process each data row
+      for (let i = 0; i < data.length; i++) {
+        const row = data[i];
+        const rowNum = i + 2; // Account for header row
 
-        const values = parseCsvLine(line);
-        const row: any = {};
-
-        headers.forEach((header, index) => {
-          let value = values[index] || '';
-          // Remove surrounding quotes if present
-          if (value.startsWith('"') && value.endsWith('"')) {
-            value = value.substring(1, value.length - 1);
-          }
-          row[header] = value.trim();
-        });
-
-        // Validate and transform the row
         const rowErrors: string[] = [];
 
         // Validate name (ONLY REQUIRED FIELD)
         if (!row.name || row.name.trim() === '') {
-          rowErrors.push(`Row ${i + 1}: Missing product name (required)`);
+          rowErrors.push(`Row ${rowNum}: Missing product name (required)`);
         }
 
         // Price with smart default
@@ -404,7 +439,7 @@ export function AdminPage({
           if (!isNaN(parsedPrice) && parsedPrice > 0) {
             price = parsedPrice;
           } else {
-            warnings.push(`Row ${i + 1}: Invalid price '${row.price}', using default ($9.99)`);
+            warnings.push(`Row ${rowNum}: Invalid price '${row.price}', using default ($9.99)`);
           }
         }
 
@@ -433,13 +468,13 @@ export function AdminPage({
           // Set default categoryId based on category
           categoryId = category === 'baby' ? 'apparel-accessories' : 'cold-cough-allergy-sinus';
           if (row.categoryid) {
-            warnings.push(`Row ${i + 1}: Invalid categoryId '${row.categoryid}', using default '${categoryId}' for ${category} category`);
+            warnings.push(`Row ${rowNum}: Invalid categoryId '${row.categoryid}', using default '${categoryId}' for ${category} category`);
           }
         }
         // Use defaults and warn
         else {
           if (row.category || row.categoryid) {
-            warnings.push(`Row ${i + 1}: Invalid category/categoryId values, using defaults (baby / baby-clothing-accessories)`);
+            warnings.push(`Row ${rowNum}: Invalid category/categoryId values, using defaults (baby / baby-clothing-accessories)`);
           }
         }
         
@@ -454,7 +489,7 @@ export function AdminPage({
         if (row.rating) {
           rating = parseFloat(row.rating);
           if (isNaN(rating) || rating < 0 || rating > 5) {
-            warnings.push(`Row ${i + 1}: Invalid rating, using default (4.5)`);
+            warnings.push(`Row ${rowNum}: Invalid rating, using default (4.5)`);
             rating = 4.5;
           }
         }
@@ -464,7 +499,7 @@ export function AdminPage({
         if (row.reviewcount) {
           reviewCount = parseInt(row.reviewcount);
           if (isNaN(reviewCount) || reviewCount < 0) {
-            warnings.push(`Row ${i + 1}: Invalid review count, using default (100)`);
+            warnings.push(`Row ${rowNum}: Invalid review count, using default (100)`);
             reviewCount = 100;
           }
         }
@@ -472,9 +507,9 @@ export function AdminPage({
         // InStock with default
         const inStock = row.instock?.toLowerCase() === 'true' || row.instock === '1' || !row.instock;
         
-        // Badge with default - now includes "Standard"
+        // Badge - no default, only set if explicitly provided
         const validBadges = ['Best Seller', 'Top Rated', 'New', 'Standard'];
-        let badge = 'Standard';
+        let badge: string | undefined = undefined;
         
         if (row.badge) {
           if (row.badge.toLowerCase() === 'default') {
@@ -483,10 +518,21 @@ export function AdminPage({
             badge = row.badge;
           } else {
             badge = 'Standard';
-            warnings.push(`Row ${i + 1}: Invalid badge '${row.badge}', using 'Standard'`);
+            warnings.push(`Row ${rowNum}: Invalid badge '${row.badge}', using 'Standard'`);
           }
         }
         
+        // Currency with default
+        let currency: 'USD' | 'JMD' | 'CAD' = 'USD';
+        if (row.currency) {
+          const currencyUpper = row.currency.toUpperCase();
+          if (['USD', 'JMD', 'CAD'].includes(currencyUpper)) {
+            currency = currencyUpper as 'USD' | 'JMD' | 'CAD';
+          } else {
+            warnings.push(`Row ${rowNum}: Invalid currency '${row.currency}', using default (USD)`);
+          }
+        }
+
         // Transform analytics fields with validation
         let costPrice: number | undefined = undefined;
         if (row.costprice) {
@@ -494,7 +540,7 @@ export function AdminPage({
           if (!isNaN(parsed) && parsed >= 0) {
             costPrice = parsed;
           } else {
-            warnings.push(`Row ${i + 1}: Invalid costPrice '${row.costprice}', skipping`);
+            warnings.push(`Row ${rowNum}: Invalid costPrice '${row.costprice}', skipping`);
           }
         }
         
@@ -504,7 +550,7 @@ export function AdminPage({
           if (!isNaN(parsed) && parsed >= 0) {
             stockCount = parsed;
           } else {
-            warnings.push(`Row ${i + 1}: Invalid stockCount '${row.stockcount}', skipping`);
+            warnings.push(`Row ${rowNum}: Invalid stockCount '${row.stockcount}', skipping`);
           }
         }
         
@@ -514,7 +560,7 @@ export function AdminPage({
           if (!isNaN(parsed) && parsed >= 0) {
             soldCount = parsed;
           } else {
-            warnings.push(`Row ${i + 1}: Invalid soldCount '${row.soldcount}', using default (0)`);
+            warnings.push(`Row ${rowNum}: Invalid soldCount '${row.soldcount}', using default (0)`);
           }
         }
         
@@ -528,11 +574,12 @@ export function AdminPage({
           errors.push(...rowErrors);
         } else {
           parsedData.push({
-            name: row.name,
+            name: row.name.trim(),
             description: description,
-            category: row.category,
-            categoryId: row.categoryid.toLowerCase(),
+            category: category as 'baby' | 'pharmaceutical',
+            categoryId: categoryId,
             price: price,
+            currency: currency,
             costPrice: costPrice,
             stockCount: stockCount,
             soldCount: soldCount,
@@ -543,6 +590,7 @@ export function AdminPage({
             badge: badge,
           });
         }
+
       }
 
       // Detect duplicates
@@ -585,23 +633,122 @@ export function AdminPage({
     setIsProcessingCsv(false);
   };
 
-  const handleBulkImport = () => {
+  const handleBulkImport = async () => {
     if (csvData.length === 0) {
       toast.error('No valid products to import');
       return;
     }
 
+    setIsProcessingCsv(true);
     let successCount = 0;
-    csvData.forEach((product) => {
-      try {
-        onAddProduct(product);
-        successCount++;
-      } catch (error) {
-        console.error('Error adding product:', error);
-      }
-    });
+    let imageUploadCount = 0;
+    let skippedCount = 0;
 
-    toast.success(`Successfully imported ${successCount} products!`);
+    try {
+      // Filter out duplicates first
+      const newProducts: Omit<Product, 'id'>[] = [];
+      const productsToProcess: Array<{product: Omit<Product, 'id'>, index: number}> = [];
+
+      csvData.forEach((product, index) => {
+        const existingProduct = products.find(p => 
+          p.name.toLowerCase() === product.name.toLowerCase() && 
+          p.category === product.category
+        );
+
+        if (existingProduct) {
+          console.log(`⏭️ Skipping duplicate product: "${product.name}"`);
+          skippedCount++;
+        } else {
+          productsToProcess.push({ product, index });
+        }
+      });
+
+      if (productsToProcess.length === 0) {
+        toast.error('All products are duplicates. Nothing to import.');
+        setIsProcessingCsv(false);
+        return;
+      }
+
+      // Process images in parallel batches (20 at a time for better throughput)
+      const IMAGE_BATCH_SIZE = 20;
+      toast.info(`Processing ${productsToProcess.length} products...`);
+
+      for (let i = 0; i < productsToProcess.length; i += IMAGE_BATCH_SIZE) {
+        const batch = productsToProcess.slice(i, i + IMAGE_BATCH_SIZE);
+        const batchNumber = Math.floor(i / IMAGE_BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(productsToProcess.length / IMAGE_BATCH_SIZE);
+        console.log(`📦 Processing image batch ${batchNumber}/${totalBatches} (${batch.length} products)...`);
+        toast.info(`Processing images: batch ${batchNumber}/${totalBatches}...`);
+
+        // Upload images in parallel for this batch with better error handling
+        const imageUploadPromises = batch.map(async ({ product, index }) => {
+          if (product.image && product.image.trim()) {
+            try {
+              // Skip if already in Supabase storage
+              if (product.image.includes('supabase.co')) {
+                return product;
+              }
+              
+              const uploadedImageUrl = await uploadImageToStorage(product.image, product.name, index);
+              if (uploadedImageUrl !== product.image) {
+                imageUploadCount++;
+                return { ...product, image: uploadedImageUrl };
+              }
+            } catch (err) {
+              console.warn(`⚠️ Failed to upload image for ${product.name}:`, err);
+              // Continue with original image URL if upload fails
+            }
+          }
+          return product;
+        });
+
+        const processedBatch = await Promise.allSettled(imageUploadPromises);
+        processedBatch.forEach((result, idx) => {
+          if (result.status === 'fulfilled') {
+            newProducts.push(result.value);
+          } else {
+            // Fallback to original product if processing failed
+            console.error(`Failed to process product at index ${i + idx}:`, result.reason);
+            newProducts.push(batch[idx].product);
+          }
+        });
+      }
+
+      // Use bulk import API if available, otherwise fall back to individual adds
+      if (onBulkImport && newProducts.length > 0) {
+        console.log(`🚀 Bulk importing ${newProducts.length} products to database...`);
+        successCount = await onBulkImport(newProducts);
+        console.log(`✅ Successfully imported ${successCount} products`);
+      } else {
+        // Fallback to individual adds if bulk import not available
+        console.log(`⚠️ Bulk import not available, using individual adds...`);
+        for (const product of newProducts) {
+          try {
+            onAddProduct(product);
+            successCount++;
+          } catch (error) {
+            console.error('Error adding product:', error);
+          }
+        }
+      }
+
+      let message = `Successfully imported ${successCount} products!`;
+      if (imageUploadCount > 0) {
+        message += ` (${imageUploadCount} images uploaded to storage)`;
+      }
+      if (skippedCount > 0) {
+        message += ` (${skippedCount} duplicates skipped)`;
+      }
+      
+      toast.success(message);
+    } catch (error) {
+      console.error('Bulk import error:', error);
+      toast.error(`Bulk import failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsProcessingCsv(false);
+    }
+
+    // Reset state
     setCsvFile(null);
     setCsvData([]);
     setCsvErrors([]);
@@ -616,13 +763,13 @@ export function AdminPage({
   };
 
   const downloadTemplate = () => {
-    const template = `name,description,category,categoryId,price,costPrice,stockCount,soldCount,rating,reviewCount,image,inStock,badge
-Baby Onesie,Soft cotton onesie for newborns,baby,apparel-accessories,12.99,6.50,150,87,4.5,150,https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400,true,Best Seller
-Infant Formula,Nutritious formula for babies 0-12 months,baby,baby-feeding,24.99,15.00,200,123,4.8,200,https://images.unsplash.com/photo-1587049352846-4a222e784acc?w=400,true,Standard
-Cold Medicine,Fast relief for cold and flu symptoms,pharmaceutical,cold-cough-allergy-sinus,8.99,4.25,300,456,4.6,180,https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400,true,
-Baby Toy Set,Colorful educational toys,baby,baby-toys-entertainment,19.99,10.00,100,45,4.7,89,https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=400,true,New
-Dental Floss,Mint flavored dental floss,pharmaceutical,dental-care,3.99,1.50,500,234,4.8,156,https://images.unsplash.com/photo-1607613009820-a29f7bb81c04?w=400,true,
-Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,`;
+    const template = `name,description,category,categoryId,price,currency,costPrice,stockCount,soldCount,rating,reviewCount,image,inStock,badge
+Baby Onesie,Soft cotton onesie for newborns,baby,apparel-accessories,12.99,USD,6.50,150,87,4.5,150,https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400,true,Best Seller
+Infant Formula,Nutritious formula for babies 0-12 months,baby,baby-feeding,24.99,USD,15.00,200,123,4.8,200,https://images.unsplash.com/photo-1587049352846-4a222e784acc?w=400,true,Standard
+Cold Medicine,Fast relief for cold and flu symptoms,pharmaceutical,cold-cough-allergy-sinus,8.99,USD,4.25,300,456,4.6,180,https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400,true,
+Baby Toy Set,Colorful educational toys,baby,baby-toys-entertainment,19.99,USD,10.00,100,45,4.7,89,https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=400,true,New
+Dental Floss,Mint flavored dental floss,pharmaceutical,dental-care,3.99,USD,1.50,500,234,4.8,156,https://images.unsplash.com/photo-1607613009820-a29f7bb81c04?w=400,true,
+Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
 
     const blob = new Blob([template], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
@@ -1922,7 +2069,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,`;
                                           alt={product.name}
                                           className="w-12 h-12 object-cover rounded border"
                                           onError={(e) => {
-                                            e.currentTarget.src = 'https://via.placeholder.com/48x48?text=No+Image';
+                                            e.currentTarget.src = 'https://placehold.co/48x48?text=No+Image';
                                           }}
                                         />
                                         <span className="text-xs text-gray-500 truncate max-w-[100px]" title={product.image}>
@@ -2195,6 +2342,237 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,`;
           {/* Users Tab */}
           <TabsContent value="users">
             <UserManagementPanel />
+          </TabsContent>
+
+          {/* Payment Settings Tab */}
+          <TabsContent value="payment-settings">
+            <Card>
+              <CardHeader>
+                <CardTitle>DimePay Payment Gateway Settings</CardTitle>
+                <CardDescription>
+                  Configure your DimePay payment gateway credentials and settings
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingPaymentSettings ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#003366] mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading payment settings...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    {/* Enable/Disable Toggle */}
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <Label className="text-base font-medium">Enable Payment Gateway</Label>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Toggle payment gateway on/off
+                        </p>
+                      </div>
+                      <Switch
+                        checked={paymentFormData.is_enabled}
+                        onCheckedChange={(checked) =>
+                          setPaymentFormData({ ...paymentFormData, is_enabled: checked })
+                        }
+                      />
+                    </div>
+
+                    {/* DimePay Credentials */}
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">DimePay Credentials</h3>
+                      
+                      <div className="space-y-2">
+                        <Label htmlFor="merchant_id">Merchant ID *</Label>
+                        <Input
+                          id="merchant_id"
+                          type="text"
+                          placeholder="Enter your DimePay Merchant ID"
+                          value={paymentFormData.merchant_id}
+                          onChange={(e) =>
+                            setPaymentFormData({ ...paymentFormData, merchant_id: e.target.value })
+                          }
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="secret_key">Secret Key *</Label>
+                        <Input
+                          id="secret_key"
+                          type="password"
+                          placeholder="Enter your DimePay Secret Key"
+                          value={paymentFormData.secret_key}
+                          onChange={(e) =>
+                            setPaymentFormData({ ...paymentFormData, secret_key: e.target.value })
+                          }
+                        />
+                        <p className="text-xs text-gray-500">
+                          Your secret key is encrypted and stored securely
+                        </p>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="client_key">Client Key *</Label>
+                        <Input
+                          id="client_key"
+                          type="password"
+                          placeholder="Enter your DimePay Client Key"
+                          value={paymentFormData.client_key}
+                          onChange={(e) =>
+                            setPaymentFormData({ ...paymentFormData, client_key: e.target.value })
+                          }
+                        />
+                      </div>
+                    </div>
+
+                    {/* Environment Selection */}
+                    <div className="space-y-2">
+                      <Label>Environment</Label>
+                      <Select
+                        value={paymentFormData.environment}
+                        onValueChange={(value: 'sandbox' | 'production') =>
+                          setPaymentFormData({ ...paymentFormData, environment: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="sandbox">Sandbox (Testing)</SelectItem>
+                          <SelectItem value="production">Production (Live)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-gray-500">
+                        Use Sandbox for testing, Production for live transactions
+                      </p>
+                    </div>
+
+                    {/* Fee Handling */}
+                    <div className="space-y-2">
+                      <Label>Platform Fee Handling</Label>
+                      <Select
+                        value={paymentFormData.fee_handling}
+                        onValueChange={(value: 'merchant' | 'customer') =>
+                          setPaymentFormData({ ...paymentFormData, fee_handling: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="merchant">Merchant Absorbs Fees</SelectItem>
+                          <SelectItem value="customer">Customer Pays Fees</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-gray-500">
+                        {paymentFormData.fee_handling === 'merchant'
+                          ? 'Platform fees will be deducted from your payment'
+                          : 'Platform fees will be added to the customer\'s total'}
+                      </p>
+                    </div>
+
+                    {/* Platform Fee Percentage */}
+                    <div className="space-y-2">
+                      <Label htmlFor="fee_percentage">Platform Fee Percentage (%)</Label>
+                      <Input
+                        id="fee_percentage"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        placeholder="2.90"
+                        value={paymentFormData.platform_fee_percentage}
+                        onChange={(e) =>
+                          setPaymentFormData({
+                            ...paymentFormData,
+                            platform_fee_percentage: e.target.value,
+                          })
+                        }
+                      />
+                      <p className="text-xs text-gray-500">
+                        Default: 2.90% (standard payment processing fee)
+                      </p>
+                    </div>
+
+                    {/* Save Button */}
+                    <div className="flex justify-end gap-4 pt-4 border-t">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          if (paymentSettings) {
+                            setPaymentFormData({
+                              merchant_id: paymentSettings.merchant_id || '',
+                              secret_key: paymentSettings.secret_key || '',
+                              client_key: paymentSettings.client_key || '',
+                              environment: paymentSettings.environment,
+                              fee_handling: paymentSettings.fee_handling,
+                              platform_fee_percentage: paymentSettings.platform_fee_percentage.toString(),
+                              is_enabled: paymentSettings.is_enabled,
+                            });
+                          }
+                        }}
+                      >
+                        Reset
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          if (
+                            !paymentFormData.merchant_id ||
+                            !paymentFormData.secret_key ||
+                            !paymentFormData.client_key
+                          ) {
+                            toast.error('Please fill in all required fields');
+                            return;
+                          }
+
+                          setIsSavingPaymentSettings(true);
+                          try {
+                            await paymentGatewayService.updateSettings({
+                              merchant_id: paymentFormData.merchant_id,
+                              secret_key: paymentFormData.secret_key,
+                              client_key: paymentFormData.client_key,
+                              environment: paymentFormData.environment,
+                              fee_handling: paymentFormData.fee_handling,
+                              platform_fee_percentage: parseFloat(paymentFormData.platform_fee_percentage),
+                              is_enabled: paymentFormData.is_enabled,
+                            });
+
+                            // Reload settings
+                            const updated = await paymentGatewayService.getSettings();
+                            if (updated) {
+                              setPaymentSettings(updated);
+                            }
+
+                            toast.success('Payment settings saved successfully!');
+                          } catch (error) {
+                            console.error('Error saving payment settings:', error);
+                            toast.error('Failed to save payment settings');
+                          } finally {
+                            setIsSavingPaymentSettings(false);
+                          }
+                        }}
+                        disabled={isSavingPaymentSettings}
+                      >
+                        {isSavingPaymentSettings ? 'Saving...' : 'Save Settings'}
+                      </Button>
+                    </div>
+
+                    {/* Status Indicator */}
+                    {paymentFormData.is_enabled &&
+                      paymentFormData.merchant_id &&
+                      paymentFormData.secret_key &&
+                      paymentFormData.client_key && (
+                        <Alert>
+                          <CheckCircle2 className="h-4 w-4" />
+                          <AlertDescription>
+                            Payment gateway is configured and enabled. Using{' '}
+                            <strong>{paymentFormData.environment}</strong> environment.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </div>

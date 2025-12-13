@@ -12,7 +12,6 @@ import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { toast } from 'sonner@2.0.3';
 import { authService } from '../utils/authService';
-import { directAuth } from '../utils/directAuth';
 import { config } from '../utils/config';
 import logoImage from '../assets/nexgen-logo-new.png';
 
@@ -59,12 +58,13 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
 
     try {
       if (config.useSupabase) {
-        console.log('🔵 Using Direct Auth (CORS-free)');
-        // Use direct database authentication to bypass CORS
-        const result = await directAuth.signIn(signInEmail, signInPassword);
+        console.log('🔵 Using Supabase Auth');
+        // Use Supabase Auth for secure authentication
+        const result = await authService.signIn(signInEmail, signInPassword);
         
         if (result.success && result.user) {
-          const isAdmin = result.user.is_admin || false;
+          // Check admin status from database
+          const isAdmin = await authService.isAdmin();
           
           onLogin(result.user.email, isAdmin);
           toast.success(`Welcome back${isAdmin ? ', Admin' : ''}!`);
@@ -117,23 +117,27 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
 
     try {
       if (config.useSupabase) {
-        console.log('🔵 Using Direct Auth (CORS-free)');
-        // Use direct database authentication to bypass CORS
-        const result = await directAuth.signUp(signUpEmail, signUpPassword, {
+        console.log('🔵 Using Supabase Auth');
+        // Use Supabase Auth for secure user registration
+        const result = await authService.signUp(signUpEmail, signUpPassword, {
           firstName,
           lastName,
         });
         
         console.log('🔵 Sign up result:', result);
         
-        if (result.success) {
-          toast.success('Account created successfully!', {
-            duration: 3000,
+        if (result.success && result.user) {
+          toast.success('Account created successfully! Please check your email to verify your account.', {
+            duration: 5000,
           });
-          // Auto sign in after signup
-          onLogin(result.user!.email, result.user!.is_admin || false);
+          
+          // Note: We don't auto-sign in because Supabase requires email verification
+          // User should verify email first, then sign in
           onOpenChange(false);
           resetForms();
+          
+          // Switch to sign in tab to encourage them to sign in after verification
+          setActiveTab('signin');
         } else {
           console.error('❌ Sign up failed:', result.error);
           toast.error(result.error || 'Failed to create account');

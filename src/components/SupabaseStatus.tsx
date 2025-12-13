@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Badge } from './ui/badge';
 import { CheckCircle2, XCircle, Loader2, Database } from 'lucide-react';
 import { config } from '../utils/config';
-import { projectId } from '../utils/supabase/info';
+import { supabase } from '../utils/supabaseClient';
 
 export function SupabaseStatus() {
   const [status, setStatus] = useState<'checking' | 'connected' | 'disconnected' | 'disabled'>('checking');
@@ -18,21 +18,22 @@ export function SupabaseStatus() {
     }
 
     try {
-      const response = await fetch(
-        `https://${projectId}.supabase.co/functions/v1/make-server-2ab21562/health`,
-        {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        }
-      );
+      // Use a lightweight query to check Supabase connectivity
+      const { error } = await supabase
+        .from('products')
+        .select('id')
+        .limit(1);
 
-      if (response.ok) {
-        setStatus('connected');
-      } else {
-        setStatus('disconnected');
+      if (error) {
+        // If we get an auth error, try without auth (public access)
+        if (error.message.includes('JWT') || error.code === 'PGRST301') {
+          setStatus('disconnected');
+          return;
+        }
+        throw error;
       }
+
+      setStatus('connected');
     } catch (error) {
       console.error('Supabase health check failed:', error);
       setStatus('disconnected');

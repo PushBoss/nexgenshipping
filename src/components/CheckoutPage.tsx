@@ -8,10 +8,9 @@ import { Separator } from './ui/separator';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Product } from './ProductCard';
 import { toast } from 'sonner@2.0.3';
-import { getStripe, isStripeConfigured, toCents } from '../utils/paymentService';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { StripePaymentForm } from './StripePaymentForm';
-import type { Stripe, StripeElements } from '@stripe/stripe-js';
+import { Currency, convertCurrency, formatCurrency } from '../utils/currencyService';
+import { isDimePayConfigured } from '../utils/dimepayService';
+import { DimePayPaymentForm } from './DimePayPaymentForm';
 
 interface CartItem extends Product {
   quantity: number;
@@ -21,14 +20,13 @@ interface CheckoutPageProps {
   cartItems: CartItem[];
   onNavigate: (page: 'home' | 'cart') => void;
   onOrderComplete: () => void;
+  selectedCurrency?: Currency;
 }
 
-export function CheckoutPage({ cartItems, onNavigate, onOrderComplete }: CheckoutPageProps) {
+export function CheckoutPage({ cartItems, onNavigate, onOrderComplete, selectedCurrency = 'USD' }: CheckoutPageProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [shippingMethod, setShippingMethod] = useState('standard');
-  const [paymentMethod, setPaymentMethod] = useState('stripe');
-  const [clientSecret, setClientSecret] = useState<string>('');
-  const [stripePromise] = useState(() => getStripe());
+  const [dimePayConfigured, setDimePayConfigured] = useState(false);
   
   const [shippingInfo, setShippingInfo] = useState({
     fullName: '',
@@ -42,59 +40,38 @@ export function CheckoutPage({ cartItems, onNavigate, onOrderComplete }: Checkou
 
   // Removed paymentInfo state as Stripe handles this
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  // Calculate totals in selected currency
+  const subtotal = cartItems.reduce((sum, item) => {
+    const itemCurrency = item.currency || 'USD';
+    const convertedPrice = convertCurrency(item.price, itemCurrency, selectedCurrency);
+    return sum + convertedPrice * item.quantity;
+  }, 0);
   const tax = subtotal * 0.08;
-  const shippingCost = shippingMethod === 'express' ? 19.99 : shippingMethod === 'overnight' ? 39.99 : subtotal > 50 ? 0 : 9.99;
+  const shippingThreshold = convertCurrency(50, 'USD', selectedCurrency);
+  const shippingBase = convertCurrency(9.99, 'USD', selectedCurrency);
+  const shippingExpress = convertCurrency(19.99, 'USD', selectedCurrency);
+  const shippingOvernight = convertCurrency(39.99, 'USD', selectedCurrency);
+  const shippingCost = shippingMethod === 'express' 
+    ? shippingExpress 
+    : shippingMethod === 'overnight' 
+      ? shippingOvernight 
+      : subtotal > shippingThreshold ? 0 : shippingBase;
   const total = subtotal + tax + shippingCost;
 
-  // Check if Stripe is configured
-  const stripeConfigured = isStripeConfigured();
-
-  // Create payment intent when moving to payment step
+  // Check if DimePay is configured
   useEffect(() => {
-    if (currentStep === 2 && stripeConfigured && !clientSecret) {
-      createPaymentIntent();
-    }
-  }, [currentStep, stripeConfigured]);
-
-  const createPaymentIntent = async () => {
-    try {
-      // TODO: Replace with your actual backend endpoint
-      // For now, this is a placeholder that shows the structure
-      const response = await fetch('/api/create-payment-intent', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          amount: toCents(total),
-          currency: 'usd',
-          customerEmail: shippingInfo.email,
-          customerName: shippingInfo.fullName,
-          metadata: {
-            items: cartItems.length,
-            shipping_method: shippingMethod,
-          },
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to create payment intent');
-      }
-
-      const data = await response.json();
-      setClientSecret(data.clientSecret);
-    } catch (error) {
-      console.error('Error creating payment intent:', error);
-      toast.error('Failed to initialize payment. Please try again.');
-    }
-  };
+    const checkConfiguration = async () => {
+      const configured = await isDimePayConfigured();
+      setDimePayConfigured(configured);
+    };
+    checkConfiguration();
+  }, []);
 
   const handleShippingSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (Object.values(shippingInfo).every(val => val.trim())) {
-      if (!stripeConfigured) {
-        toast.error('Payment gateway not configured. Please add your Stripe API key.');
+      if (!dimePayConfigured) {
+        toast.error('Payment gateway not configured. Please configure DimePay in admin settings.');
         return;
       }
       setCurrentStep(2);
@@ -266,7 +243,9 @@ export function CheckoutPage({ cartItems, onNavigate, onOrderComplete }: Checkou
                           </div>
                         </Label>
                       </div>
-                      <span className="font-semibold">{subtotal > 50 ? 'FREE' : '$9.99'}</span>
+                      <span className="font-semibold">
+                        {subtotal > shippingThreshold ? 'FREE' : formatCurrency(shippingBase, selectedCurrency)}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between p-4 border rounded-lg mb-2">
                       <div className="flex items-center space-x-2">
@@ -305,18 +284,19 @@ export function CheckoutPage({ cartItems, onNavigate, onOrderComplete }: Checkou
           {/* Step 2: Payment Information */}
           {currentStep === 2 && (
             <div className="bg-white rounded-lg shadow-sm p-6">
-              {!stripeConfigured ? (
+              {!dimePayConfigured ? (
                 <div className="space-y-4">
                   <div className="flex items-start gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
                     <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 shrink-0" />
                     <div className="text-sm text-yellow-800">
-                      <p className="font-semibold mb-1">Stripe Not Configured</p>
+                      <p className="font-semibold mb-1">DimePay Not Configured</p>
                       <p>To accept payments, you need to:</p>
                       <ol className="list-decimal ml-4 mt-2 space-y-1">
-                        <li>Get your Stripe publishable key from <a href="https://dashboard.stripe.com/apikeys" target="_blank" rel="noopener noreferrer" className="underline">Stripe Dashboard</a></li>
-                        <li>Create a <code className="bg-yellow-100 px-1 rounded">.env</code> file in your project root</li>
-                        <li>Add: <code className="bg-yellow-100 px-1 rounded">VITE_STRIPE_PUBLISHABLE_KEY=pk_test_...</code></li>
-                        <li>Restart your development server</li>
+                        <li>Go to Admin Dashboard → Payment Settings</li>
+                        <li>Enter your DimePay Merchant ID, Secret Key, and Client Key</li>
+                        <li>Select environment (Sandbox for testing, Production for live)</li>
+                        <li>Choose fee handling (Merchant absorbs or Customer pays)</li>
+                        <li>Enable the payment gateway</li>
                       </ol>
                     </div>
                   </div>
@@ -328,21 +308,16 @@ export function CheckoutPage({ cartItems, onNavigate, onOrderComplete }: Checkou
                     Back to Shipping
                   </Button>
                 </div>
-              ) : clientSecret && stripePromise ? (
-                <Elements stripe={stripePromise} options={{ clientSecret }}>
-                  <StripePaymentForm
-                    amount={total}
-                    onSuccess={handlePaymentSuccess}
-                    onBack={() => setCurrentStep(1)}
-                    customerEmail={shippingInfo.email}
-                    customerName={shippingInfo.fullName}
-                  />
-                </Elements>
               ) : (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#003366] mx-auto mb-4"></div>
-                  <p className="text-gray-600">Initializing secure payment...</p>
-                </div>
+                <DimePayPaymentForm
+                  amount={total}
+                  currency={selectedCurrency}
+                  customerEmail={shippingInfo.email}
+                  customerName={shippingInfo.fullName}
+                  onSuccess={handlePaymentSuccess}
+                  onBack={() => setCurrentStep(1)}
+                  orderId={`order-${Date.now()}`}
+                />
               )}
             </div>
           )}
@@ -387,8 +362,8 @@ export function CheckoutPage({ cartItems, onNavigate, onOrderComplete }: Checkou
                 <div className="flex items-center gap-3">
                   <Lock className="h-8 w-8 text-green-600" />
                   <div className="text-sm">
-                    <p className="font-semibold">Stripe Payment</p>
-                    <p className="text-gray-600">Payment confirmed and secured by Stripe</p>
+                    <p className="font-semibold">DimePay Payment</p>
+                    <p className="text-gray-600">Payment confirmed and secured by DimePay</p>
                   </div>
                 </div>
               </div>
@@ -409,7 +384,12 @@ export function CheckoutPage({ cartItems, onNavigate, onOrderComplete }: Checkou
                         <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-semibold">${(item.price * item.quantity).toFixed(2)}</p>
+                        <p className="font-semibold">
+                          {formatCurrency(
+                            convertCurrency(item.price, item.currency || 'USD', selectedCurrency) * item.quantity,
+                            selectedCurrency
+                          )}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -443,7 +423,7 @@ export function CheckoutPage({ cartItems, onNavigate, onOrderComplete }: Checkou
             <div className="space-y-3 mb-4">
               <div className="flex justify-between text-sm">
                 <span>Items ({cartItems.length}):</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>{formatCurrency(subtotal, selectedCurrency)}</span>
               </div>
               
               <div className="flex justify-between text-sm">
@@ -452,14 +432,14 @@ export function CheckoutPage({ cartItems, onNavigate, onOrderComplete }: Checkou
                   {shippingCost === 0 ? (
                     <span className="text-green-600 font-semibold">FREE</span>
                   ) : (
-                    `$${shippingCost.toFixed(2)}`
+                    formatCurrency(shippingCost, selectedCurrency)
                   )}
                 </span>
               </div>
 
               <div className="flex justify-between text-sm">
                 <span>Tax:</span>
-                <span>${tax.toFixed(2)}</span>
+                <span>{formatCurrency(tax, selectedCurrency)}</span>
               </div>
 
               <Separator />
@@ -467,7 +447,7 @@ export function CheckoutPage({ cartItems, onNavigate, onOrderComplete }: Checkou
               <div className="flex justify-between items-center">
                 <span className="font-semibold">Order Total:</span>
                 <span className="text-xl font-bold text-[#DC143C]">
-                  ${total.toFixed(2)}
+                  {formatCurrency(total, selectedCurrency)}
                 </span>
               </div>
             </div>

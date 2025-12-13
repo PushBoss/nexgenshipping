@@ -1,14 +1,18 @@
-import { Package, Truck, CheckCircle, Clock } from 'lucide-react';
+import { Package, Truck, CheckCircle, Clock, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Card } from './ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { useState, useEffect } from 'react';
+import { ordersService, OrderWithItems } from '../utils/ordersService';
+import { authService } from '../utils/authService';
+import { config } from '../utils/config';
 
 interface Order {
   id: string;
   orderNumber: string;
   date: string;
-  status: 'delivered' | 'in-transit' | 'processing' | 'cancelled';
+  status: 'delivered' | 'in-transit' | 'processing' | 'cancelled' | 'confirmed' | 'refunded';
   total: number;
   items: {
     id: string;
@@ -26,68 +30,75 @@ interface OrdersPageProps {
 }
 
 export function OrdersPage({ onProductClick }: OrdersPageProps) {
-  // Mock orders data
-  const orders: Order[] = [
-    {
-      id: '1',
-      orderNumber: 'NG-2025-001234',
-      date: 'October 15, 2025',
-      status: 'delivered',
-      total: 156.78,
-      trackingNumber: 'TRK123456789',
-      items: [
-        {
-          id: 'baby-1',
-          name: 'Premium Baby Diapers - Size 3',
-          quantity: 2,
-          price: 45.99,
-          image: 'https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400',
-        },
-        {
-          id: 'pharma-1',
-          name: 'Multivitamin Supplement',
-          quantity: 1,
-          price: 34.99,
-          image: 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400',
-        },
-      ],
-    },
-    {
-      id: '2',
-      orderNumber: 'NG-2025-001189',
-      date: 'October 10, 2025',
-      status: 'in-transit',
-      total: 89.99,
-      trackingNumber: 'TRK987654321',
-      estimatedDelivery: 'October 20, 2025',
-      items: [
-        {
-          id: 'baby-2',
-          name: 'Baby Bottle Set',
-          quantity: 1,
-          price: 89.99,
-          image: 'https://images.unsplash.com/photo-1587070021185-c64c5d3d1b71?w=400',
-        },
-      ],
-    },
-    {
-      id: '3',
-      orderNumber: 'NG-2025-000987',
-      date: 'October 5, 2025',
-      status: 'processing',
-      total: 234.50,
-      estimatedDelivery: 'October 22, 2025',
-      items: [
-        {
-          id: 'pharma-2',
-          name: 'Pain Relief Medication',
-          quantity: 3,
-          price: 78.17,
-          image: 'https://images.unsplash.com/photo-1471864190281-a93a3070b6de?w=400',
-        },
-      ],
-    },
-  ];
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadOrders();
+  }, []);
+
+  const loadOrders = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Get current user
+      if (!config.useSupabase) {
+        setError('Supabase is not enabled');
+        setOrders([]);
+        return;
+      }
+
+      const user = await authService.getCurrentUser();
+      if (!user?.id) {
+        setError('User not authenticated');
+        setOrders([]);
+        return;
+      }
+
+      console.log('📦 Loading orders for user:', user.id);
+
+      // Fetch orders from Supabase
+      const supabaseOrders = await ordersService.getAllByUser(user.id);
+
+      console.log(`✅ Loaded ${supabaseOrders.length} orders from database`);
+
+      // Map Supabase orders to component format
+      const mappedOrders: Order[] = supabaseOrders.map((order: OrderWithItems) => ({
+        id: order.id,
+        orderNumber: order.order_number,
+        date: new Date(order.created_at).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }),
+        status: order.status === 'confirmed' ? 'processing' : order.status as Order['status'],
+        total: order.total,
+        trackingNumber: order.tracking_number,
+        estimatedDelivery: order.estimated_delivery ? new Date(order.estimated_delivery).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }) : undefined,
+        items: order.items.map(item => ({
+          id: item.product_id,
+          name: item.product_name,
+          quantity: item.quantity,
+          price: item.unit_price,
+          image: item.product_image_url || 'https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400'
+        }))
+      }));
+
+      setOrders(mappedOrders);
+    } catch (err) {
+      console.error('❌ Failed to load orders:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load orders');
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const getStatusIcon = (status: Order['status']) => {
     switch (status) {
@@ -96,25 +107,31 @@ export function OrdersPage({ onProductClick }: OrdersPageProps) {
       case 'in-transit':
         return <Truck className="h-5 w-5 text-blue-600" />;
       case 'processing':
+      case 'confirmed':
         return <Clock className="h-5 w-5 text-orange-600" />;
       case 'cancelled':
+      case 'refunded':
         return <Package className="h-5 w-5 text-red-600" />;
     }
   };
 
   const getStatusBadge = (status: Order['status']) => {
-    const variants = {
+    const variants: Record<string, string> = {
       delivered: 'bg-green-100 text-green-800 border-green-200',
       'in-transit': 'bg-blue-100 text-blue-800 border-blue-200',
       processing: 'bg-orange-100 text-orange-800 border-orange-200',
+      confirmed: 'bg-orange-100 text-orange-800 border-orange-200',
       cancelled: 'bg-red-100 text-red-800 border-red-200',
+      refunded: 'bg-red-100 text-red-800 border-red-200',
     };
 
-    const labels = {
+    const labels: Record<string, string> = {
       delivered: 'Delivered',
       'in-transit': 'In Transit',
       processing: 'Processing',
+      confirmed: 'Confirmed',
       cancelled: 'Cancelled',
+      refunded: 'Refunded',
     };
 
     return (
@@ -125,7 +142,9 @@ export function OrdersPage({ onProductClick }: OrdersPageProps) {
   };
 
   const allOrders = orders;
-  const activeOrders = orders.filter(o => o.status !== 'delivered' && o.status !== 'cancelled');
+  const activeOrders = orders.filter(o => 
+    o.status !== 'delivered' && o.status !== 'cancelled' && o.status !== 'refunded'
+  );
   const completedOrders = orders.filter(o => o.status === 'delivered');
 
   const renderOrders = (orderList: Order[]) => {
@@ -235,25 +254,44 @@ export function OrdersPage({ onProductClick }: OrdersPageProps) {
         <p className="text-gray-600">View and track your orders</p>
       </div>
 
-      <Tabs defaultValue="all" className="w-full">
-        <TabsList className="grid w-full md:w-auto md:inline-grid grid-cols-3 mb-6">
-          <TabsTrigger value="all">All Orders ({allOrders.length})</TabsTrigger>
-          <TabsTrigger value="active">Active ({activeOrders.length})</TabsTrigger>
-          <TabsTrigger value="completed">Completed ({completedOrders.length})</TabsTrigger>
-        </TabsList>
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#003366]"></div>
+          <p className="text-gray-600 mt-4">Loading your orders...</p>
+        </div>
+      ) : error ? (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
+          <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-3" />
+          <h3 className="text-red-800 font-semibold mb-2">Error Loading Orders</h3>
+          <p className="text-red-600">{error}</p>
+          <Button 
+            onClick={loadOrders} 
+            className="mt-4 bg-red-600 hover:bg-red-700"
+          >
+            Try Again
+          </Button>
+        </div>
+      ) : (
+        <Tabs defaultValue="all" className="w-full">
+          <TabsList className="grid w-full md:w-auto md:inline-grid grid-cols-3 mb-6">
+            <TabsTrigger value="all">All Orders ({allOrders.length})</TabsTrigger>
+            <TabsTrigger value="active">Active ({activeOrders.length})</TabsTrigger>
+            <TabsTrigger value="completed">Completed ({completedOrders.length})</TabsTrigger>
+          </TabsList>
 
-        <TabsContent value="all">
-          {renderOrders(allOrders)}
-        </TabsContent>
+          <TabsContent value="all">
+            {renderOrders(allOrders)}
+          </TabsContent>
 
-        <TabsContent value="active">
-          {renderOrders(activeOrders)}
-        </TabsContent>
+          <TabsContent value="active">
+            {renderOrders(activeOrders)}
+          </TabsContent>
 
-        <TabsContent value="completed">
-          {renderOrders(completedOrders)}
-        </TabsContent>
-      </Tabs>
+          <TabsContent value="completed">
+            {renderOrders(completedOrders)}
+          </TabsContent>
+        </Tabs>
+      )}
     </div>
   );
 }

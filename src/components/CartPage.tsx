@@ -2,6 +2,7 @@ import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Product } from './ProductCard';
+import { Currency, convertCurrency, formatCurrency } from '../utils/currencyService';
 
 interface CartItem extends Product {
   quantity: number;
@@ -12,12 +13,20 @@ interface CartPageProps {
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
   onNavigate: (page: 'home' | 'checkout') => void;
+  selectedCurrency?: Currency;
 }
 
-export function CartPage({ cartItems, onUpdateQuantity, onRemoveItem, onNavigate }: CartPageProps) {
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+export function CartPage({ cartItems, onUpdateQuantity, onRemoveItem, onNavigate, selectedCurrency = 'USD' }: CartPageProps) {
+  // Calculate totals in selected currency
+  const subtotal = cartItems.reduce((sum, item) => {
+    const itemCurrency = item.currency || 'USD';
+    const convertedPrice = convertCurrency(item.price, itemCurrency, selectedCurrency);
+    return sum + convertedPrice * item.quantity;
+  }, 0);
   const tax = subtotal * 0.08; // 8% tax
-  const shipping = subtotal > 50 ? 0 : 9.99;
+  const shippingThreshold = convertCurrency(50, 'USD', selectedCurrency);
+  const shippingBase = convertCurrency(9.99, 'USD', selectedCurrency);
+  const shipping = subtotal > shippingThreshold ? 0 : shippingBase;
   const total = subtotal + tax + shipping;
 
   if (cartItems.length === 0) {
@@ -72,11 +81,17 @@ export function CartPage({ cartItems, onUpdateQuantity, onRemoveItem, onNavigate
                   
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-[#DC143C] font-semibold">
-                      ${item.price.toFixed(2)}
+                      {formatCurrency(
+                        convertCurrency(item.price, item.currency || 'USD', selectedCurrency),
+                        selectedCurrency
+                      )}
                     </span>
                     {item.originalPrice && (
                       <span className="text-sm text-gray-500 line-through">
-                        ${item.originalPrice.toFixed(2)}
+                        {formatCurrency(
+                          convertCurrency(item.originalPrice, item.currency || 'USD', selectedCurrency),
+                          selectedCurrency
+                        )}
                       </span>
                     )}
                   </div>
@@ -116,7 +131,10 @@ export function CartPage({ cartItems, onUpdateQuantity, onRemoveItem, onNavigate
                     <div className="ml-auto">
                       <p className="text-sm text-gray-600">Subtotal:</p>
                       <p className="font-semibold text-[#003366]">
-                        ${(item.price * item.quantity).toFixed(2)}
+                        {formatCurrency(
+                          convertCurrency(item.price, item.currency || 'USD', selectedCurrency) * item.quantity,
+                          selectedCurrency
+                        )}
                       </p>
                     </div>
                   </div>
@@ -134,12 +152,12 @@ export function CartPage({ cartItems, onUpdateQuantity, onRemoveItem, onNavigate
             <div className="space-y-3 mb-6">
               <div className="flex justify-between text-gray-700">
                 <span>Subtotal ({cartItems.length} items):</span>
-                <span>${subtotal.toFixed(2)}</span>
+                <span>{formatCurrency(subtotal, selectedCurrency)}</span>
               </div>
               
               <div className="flex justify-between text-gray-700">
                 <span>Estimated Tax:</span>
-                <span>${tax.toFixed(2)}</span>
+                <span>{formatCurrency(tax, selectedCurrency)}</span>
               </div>
 
               <div className="flex justify-between text-gray-700">
@@ -148,7 +166,7 @@ export function CartPage({ cartItems, onUpdateQuantity, onRemoveItem, onNavigate
                   {shipping === 0 ? (
                     <span className="text-green-600 font-semibold">FREE</span>
                   ) : (
-                    `$${shipping.toFixed(2)}`
+                    formatCurrency(shipping, selectedCurrency)
                   )}
                 </span>
               </div>

@@ -1,11 +1,17 @@
-import { User, Mail, Phone, MapPin, Shield, CreditCard, Bell, Package, LayoutDashboard } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Shield, CreditCard, Bell, Package, LayoutDashboard, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Switch } from './ui/switch';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { supabase } from '../utils/supabaseClient';
+import { authService } from '../utils/authService';
+import { ordersService } from '../utils/ordersService';
+import { config } from '../utils/config';
+import { wishlistService } from '../utils/wishlistService';
+import { toast } from 'sonner';
 
 interface AccountPageProps {
   onNavigateToOrders: () => void;
@@ -15,19 +21,26 @@ interface AccountPageProps {
 }
 
 export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin, onNavigateToAdmin }: AccountPageProps) {
+  const [loading, setLoading] = useState(true);
   const [accountInfo, setAccountInfo] = useState({
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@example.com',
-    phone: '(555) 123-4567',
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
   });
 
   const [shippingAddress, setShippingAddress] = useState({
-    street: '123 Main Street',
-    city: 'New York',
-    state: 'NY',
-    zipCode: '10001',
+    street: '',
+    city: '',
+    state: '',
+    zipCode: '',
     country: 'United States',
+  });
+
+  const [accountStats, setAccountStats] = useState({
+    memberSince: '',
+    totalOrders: 0,
+    wishlistItems: 0,
   });
 
   const [notifications, setNotifications] = useState({
@@ -37,14 +50,187 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
     smsAlerts: true,
   });
 
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    alert('Profile updated successfully!');
+  useEffect(() => {
+    loadUserData();
+  }, []);
+
+  const loadUserData = async () => {
+    try {
+      setLoading(true);
+      
+      if (!config.useSupabase) {
+        toast.error('Supabase is not enabled');
+        return;
+      }
+
+      const user = await authService.getCurrentUser();
+      
+      if (!user?.id) {
+        toast.error('User not authenticated');
+        return;
+      }
+
+      // Load user profile
+      const { data: profile, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) throw profileError;
+
+      if (profile) {
+        setAccountInfo({
+          firstName: profile.first_name || '',
+          lastName: profile.last_name || '',
+          email: user.email || '',
+          phone: profile.phone || '',
+        });
+
+        setAccountStats(prev => ({
+          ...prev,
+          memberSince: new Date(profile.created_at).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short'
+          })
+        }));
+      }
+
+      // Load default shipping address
+      const { data: address } = await supabase
+        .from('user_addresses')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('is_default', true)
+        .eq('address_type', 'shipping')
+        .single();
+
+      if (address) {
+        setShippingAddress({
+          street: address.street || '',
+          city: address.city || '',
+          state: address.state || '',
+          zipCode: address.zip_code || '',
+          country: address.country || 'United States',
+        });
+      }
+
+      // Load order stats
+      const stats = await ordersService.getStats(user.id);
+      setAccountStats(prev => ({
+        ...prev,
+        totalOrders: stats.total
+      }));
+
+      // Load wishlist count
+      const wishlistCount = await wishlistService.getCount(user.id);
+      setAccountStats(prev => ({
+        ...prev,
+        wishlistItems: wishlistCount
+      }));
+
+      console.log('✅ User data loaded successfully');
+    } catch (error) {
+      console.error('❌ Error loading user data:', error);
+      toast.error('Failed to load account data');
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleSaveAddress = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert('Address updated successfully!');
+    
+    try {
+      if (!config.useSupabase) {
+        toast.error('Supabase is not enabled');
+        return;
+      }
+
+      const user = await authService.getCurrentUser();
+      if (!user?.id) {
+        toast.error('User not authenticated');
+        return;
+      }
+
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({
+          first_name: accountInfo.firstName,
+          last_name: accountInfo.lastName,
+          phone: accountInfo.phone,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      toast.success('Profile updated successfully!');
+      console.log('✅ Profile updated');
+    } catch (error) {
+      console.error('❌ Error updating profile:', error);
+      toast.error('Failed to update profile');
+    }
+  };
+
+  const handleSaveAddress = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      const user = await authService.getCurrentUser();
+      if (!user?.id) {
+        toast.error('User not authenticated');
+        return;
+      }
+
+      // Check if default address exists
+      const { data: existing } = await supabase
+        .from('user_addresses')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_default', true)
+        .eq('address_type', 'shipping')
+        .single();
+
+      if (existing) {
+        // Update existing address
+        const { error } = await supabase
+          .from('user_addresses')
+          .update({
+            street: shippingAddress.street,
+            city: shippingAddress.city,
+            state: shippingAddress.state,
+            zip_code: shippingAddress.zipCode,
+            country: shippingAddress.country,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existing.id);
+
+        if (error) throw error;
+      } else {
+        // Insert new address
+        const { error } = await supabase
+          .from('user_addresses')
+          .insert({
+            user_id: user.id,
+            address_type: 'shipping',
+            is_default: true,
+            street: shippingAddress.street,
+            city: shippingAddress.city,
+            state: shippingAddress.state,
+            zip_code: shippingAddress.zipCode,
+            country: shippingAddress.country
+          });
+
+        if (error) throw error;
+      }
+
+      toast.success('Address updated successfully!');
+      console.log('✅ Address updated');
+    } catch (error) {
+      console.error('❌ Error updating address:', error);
+      toast.error('Failed to update address');
+    }
   };
 
   const handleSaveNotifications = (e: React.FormEvent) => {
@@ -59,60 +245,66 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
         <p className="text-gray-600">Manage your account settings and preferences</p>
       </div>
 
-      <div className="grid md:grid-cols-4 gap-6">
-        {/* Quick Actions Sidebar */}
-        <div className="md:col-span-1">
-          <Card className="p-4">
-            <h3 className="text-[#003366] mb-4">Quick Actions</h3>
-            <div className="space-y-2">
-              <Button
-                onClick={onNavigateToOrders}
-                variant="outline"
-                className="w-full justify-start"
-              >
-                <Package className="h-4 w-4 mr-2" />
-                Your Orders
-              </Button>
-              <Button
-                onClick={onNavigateToWishlist}
-                variant="outline"
-                className="w-full justify-start"
-              >
-                <Package className="h-4 w-4 mr-2" />
-                Wishlist
-              </Button>
-              {isAdmin && (
+      {loading ? (
+        <div className="text-center py-12">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-[#003366]"></div>
+          <p className="text-gray-600 mt-4">Loading account data...</p>
+        </div>
+      ) : (
+        <div className="grid md:grid-cols-4 gap-6">
+          {/* Quick Actions Sidebar */}
+          <div className="md:col-span-1">
+            <Card className="p-4">
+              <h3 className="text-[#003366] mb-4">Quick Actions</h3>
+              <div className="space-y-2">
                 <Button
-                  onClick={onNavigateToAdmin}
+                  onClick={onNavigateToOrders}
                   variant="outline"
                   className="w-full justify-start"
                 >
-                  <LayoutDashboard className="h-4 w-4 mr-2" />
-                  Admin Dashboard
+                  <Package className="h-4 w-4 mr-2" />
+                  Your Orders
                 </Button>
-              )}
-            </div>
-          </Card>
+                <Button
+                  onClick={onNavigateToWishlist}
+                  variant="outline"
+                  className="w-full justify-start"
+                >
+                  <Package className="h-4 w-4 mr-2" />
+                  Wishlist
+                </Button>
+                {isAdmin && (
+                  <Button
+                    onClick={onNavigateToAdmin}
+                    variant="outline"
+                    className="w-full justify-start"
+                  >
+                    <LayoutDashboard className="h-4 w-4 mr-2" />
+                    Admin Dashboard
+                  </Button>
+                )}
+              </div>
+            </Card>
 
-          {/* Account Summary */}
-          <Card className="p-4 mt-4">
-            <h3 className="text-[#003366] mb-4">Account Summary</h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Member Since</span>
-                <span className="text-gray-900">Jan 2024</span>
+            {/* Account Summary */}
+            <Card className="p-4 mt-4">
+              <h3 className="text-[#003366] mb-4">Account Summary</h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Member Since</span>
+                  <span className="text-gray-900">{accountStats.memberSince || 'N/A'}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Total Orders</span>
+                  <span className="text-gray-900">{accountStats.totalOrders}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-gray-600">Wishlist Items</span>
+                  <span className="text-gray-900">{accountStats.wishlistItems}</span>
+                </div>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Total Orders</span>
-                <span className="text-gray-900">12</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-gray-600">Wishlist Items</span>
-                <span className="text-gray-900">5</span>
-              </div>
-            </div>
-          </Card>
-        </div>
+            </Card>
+          </div>
 
         {/* Main Content */}
         <div className="md:col-span-3">
@@ -422,7 +614,8 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
             </TabsContent>
           </Tabs>
         </div>
-      </div>
+        </div>
+      )}
     </div>
   );
 }

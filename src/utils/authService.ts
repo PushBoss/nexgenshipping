@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import { config } from './config';
+import { publicAnonKey } from './supabase/info';
 
 /**
  * Authentication Service - Handles user authentication with Supabase
@@ -35,6 +36,46 @@ export const authService = {
 
     try {
       console.log('🔵 Attempting Supabase sign up for:', email);
+      
+      // Try using Edge Function first (bypasses CORS)
+      const supabaseUrl = `https://erxkwytqautexizleeov.supabase.co`;
+      const edgeFunctionUrl = `${supabaseUrl}/functions/v1/auth-signup`;
+      
+      try {
+        const response = await fetch(edgeFunctionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${publicAnonKey}`,
+          },
+          body: JSON.stringify({
+            email,
+            password,
+            firstName: metadata?.firstName,
+            lastName: metadata?.lastName,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.user) {
+            console.log('✅ User created via Edge Function:', result.user.email);
+            // Sign in the user after successful signup
+            const signInResult = await this.signIn(email, password);
+            return signInResult;
+          } else {
+            console.warn('⚠️ Edge Function returned error:', result.error);
+          }
+        } else {
+          const errorText = await response.text();
+          console.warn('⚠️ Edge Function returned non-OK status:', response.status, errorText);
+        }
+      } catch (edgeError: any) {
+        console.warn('⚠️ Edge Function signup failed, trying direct auth:', edgeError?.message || edgeError);
+      }
+
+      // Fallback to direct Supabase Auth (may fail with CORS)
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -48,6 +89,13 @@ export const authService = {
       });
 
       if (error) {
+        // If CORS error, provide helpful message
+        if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
+          return {
+            success: false,
+            error: 'CORS error: Please configure Supabase to allow http://localhost:3000. Go to Supabase Dashboard → Authentication → URL Configuration and add http://localhost:3000 to Redirect URLs.',
+          };
+        }
         console.error('❌ Supabase auth.signUp error:', error);
         throw error;
       }
@@ -98,12 +146,72 @@ export const authService = {
     }
 
     try {
+      // Try using Edge Function first (bypasses CORS)
+      const supabaseUrl = `https://erxkwytqautexizleeov.supabase.co`;
+      const edgeFunctionUrl = `${supabaseUrl}/functions/v1/auth-signin`;
+      
+      try {
+        const response = await fetch(edgeFunctionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${publicAnonKey}`,
+          },
+          body: JSON.stringify({
+            email,
+            password,
+          }),
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success && result.user) {
+            console.log('✅ User signed in via Edge Function:', result.user.email);
+            // Set session if provided
+            if (result.session) {
+              await supabase.auth.setSession({
+                access_token: result.session.access_token,
+                refresh_token: result.session.refresh_token,
+              });
+            }
+            return {
+              success: true,
+              user: {
+                id: result.user.id,
+                email: result.user.email,
+                user_metadata: {
+                  is_admin: result.user.is_admin,
+                },
+              },
+            };
+          } else {
+            console.warn('⚠️ Edge Function returned error:', result.error);
+          }
+        } else {
+          const errorText = await response.text();
+          console.warn('⚠️ Edge Function returned non-OK status:', response.status, errorText);
+        }
+      } catch (edgeError: any) {
+        console.warn('⚠️ Edge Function signin failed, trying direct auth:', edgeError?.message || edgeError);
+      }
+
+      // Fallback to direct Supabase Auth
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        // If CORS error, provide helpful message
+        if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
+          return {
+            success: false,
+            error: 'CORS error: Please configure Supabase to allow http://localhost:3000. Go to Supabase Dashboard → Authentication → URL Configuration and add http://localhost:3000 to Redirect URLs.',
+          };
+        }
+        throw error;
+      }
 
       if (data.user) {
         if (config.debugMode) {

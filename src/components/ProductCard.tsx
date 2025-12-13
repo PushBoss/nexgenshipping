@@ -2,6 +2,7 @@ import { Star, ShoppingCart, Lock } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { ImageWithFallback } from './figma/ImageWithFallback';
+import { Currency, convertCurrency, formatCurrency } from '../utils/currencyService';
 
 export interface Product {
   id: string;
@@ -12,6 +13,7 @@ export interface Product {
   subcategoryId?: string;
   price: number;
   originalPrice?: number;
+  currency?: 'USD' | 'JMD' | 'CAD';  // Product price currency (defaults to USD)
   rating: number;
   reviewCount: number;
   image: string;
@@ -28,6 +30,7 @@ interface ProductCardProps {
   onAddToCart: (productId: string) => void;
   onLoginPrompt: () => void;
   onProductClick?: (productId: string) => void;
+  selectedCurrency?: Currency;
 }
 
 export function ProductCard({
@@ -36,7 +39,14 @@ export function ProductCard({
   onAddToCart,
   onLoginPrompt,
   onProductClick,
+  selectedCurrency = 'USD',
 }: ProductCardProps) {
+  // Convert prices to selected currency
+  const productCurrency = product.currency || 'USD';
+  const displayPrice = convertCurrency(product.price, productCurrency, selectedCurrency);
+  const displayOriginalPrice = product.originalPrice 
+    ? convertCurrency(product.originalPrice, productCurrency, selectedCurrency)
+    : undefined;
   return (
     <div className="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-all duration-200 p-4 flex flex-col h-full group">
       {/* Image */}
@@ -95,11 +105,11 @@ export function ProductCard({
           {isLoggedIn ? (
             <div className="flex items-baseline gap-2">
               <span className="text-[#DC143C] font-bold text-xl">
-                ${product.price.toFixed(2)}
+                {formatCurrency(displayPrice, selectedCurrency)}
               </span>
-              {product.originalPrice && (
+              {displayOriginalPrice && (
                 <span className="text-sm text-gray-500 line-through">
-                  ${product.originalPrice.toFixed(2)}
+                  {formatCurrency(displayOriginalPrice, selectedCurrency)}
                 </span>
               )}
             </div>

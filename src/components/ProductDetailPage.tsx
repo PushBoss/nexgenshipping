@@ -4,6 +4,7 @@ import { Badge } from './ui/badge';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Product } from './ProductCard';
 import { useState } from 'react';
+import { Currency, convertCurrency, formatCurrency } from '../utils/currencyService';
 
 interface ProductDetailPageProps {
   product: Product;
@@ -12,6 +13,7 @@ interface ProductDetailPageProps {
   onBuyNow: (productId: string) => void;
   onBack: () => void;
   onLoginPrompt: () => void;
+  selectedCurrency?: Currency;
 }
 
 export function ProductDetailPage({
@@ -21,9 +23,18 @@ export function ProductDetailPage({
   onBuyNow,
   onBack,
   onLoginPrompt,
+  selectedCurrency = 'USD',
 }: ProductDetailPageProps) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
+
+  // Convert prices to selected currency
+  const productCurrency = product.currency || 'USD';
+  const displayPrice = convertCurrency(product.price, productCurrency, selectedCurrency);
+  const displayOriginalPrice = product.originalPrice 
+    ? convertCurrency(product.originalPrice, productCurrency, selectedCurrency)
+    : undefined;
+  const savings = displayOriginalPrice ? displayOriginalPrice - displayPrice : 0;
 
   // Generate additional product images (using the same image for demo)
   const productImages = [
@@ -135,22 +146,22 @@ export function ProductDetailPage({
               {isLoggedIn ? (
                 <div className="space-y-2">
                   <div className="flex items-baseline gap-3">
-                    {product.originalPrice && (
+                    {displayOriginalPrice && (
                       <span className="text-sm text-gray-500">
-                        List Price: <span className="line-through">${product.originalPrice.toFixed(2)}</span>
+                        List Price: <span className="line-through">{formatCurrency(displayOriginalPrice, selectedCurrency)}</span>
                       </span>
                     )}
                   </div>
                   <div className="flex items-baseline gap-2">
                     <span className="text-sm text-gray-700">Price:</span>
                     <span className="text-[#DC143C] text-3xl">
-                      ${product.price.toFixed(2)}
+                      {formatCurrency(displayPrice, selectedCurrency)}
                     </span>
                   </div>
-                  {product.originalPrice && (
+                  {displayOriginalPrice && savings > 0 && (
                     <div className="text-sm text-green-700">
-                      You Save: ${(product.originalPrice - product.price).toFixed(2)} (
-                      {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}%)
+                      You Save: {formatCurrency(savings, selectedCurrency)} (
+                      {Math.round((savings / displayOriginalPrice) * 100)}%)
                     </div>
                   )}
                 </div>
