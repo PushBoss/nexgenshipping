@@ -5,7 +5,7 @@ import { Badge } from './ui/badge';
 import { Upload, Download, Database, RefreshCw, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { dataSync, getDataSource } from '../utils/dataSync';
 import { Product } from './ProductCard';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { Alert, AlertDescription } from './ui/alert';
 import { config } from '../utils/config';
 

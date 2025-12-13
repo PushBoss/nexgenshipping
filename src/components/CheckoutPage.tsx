@@ -7,7 +7,7 @@ import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Separator } from './ui/separator';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Product } from './ProductCard';
-import { toast } from 'sonner@2.0.3';
+import { toast } from 'sonner';
 import { Currency, convertCurrency, formatCurrency } from '../utils/currencyService';
 import { isDimePayConfigured } from '../utils/dimepayService';
 import { DimePayPaymentForm } from './DimePayPaymentForm';
