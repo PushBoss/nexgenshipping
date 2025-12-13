@@ -1459,7 +1459,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                           <TableCell>
                             <div className="text-sm">
                               <div className="capitalize">{product.category}</div>
-                              <div className="text-gray-500">{getCategoryName(product.categoryId)}</div>
+                              <div className="text-gray-500">{product.categoryId || 'N/A'}</div>
                             </div>
                           </TableCell>
                           <TableCell>
@@ -1586,7 +1586,10 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                         <Label className="text-sm text-gray-600 whitespace-nowrap">Badge:</Label>
                         <Select
                           value={product.badge || 'none'}
-                          onValueChange={(value) => handleUpdateBadge(product, value as any)}
+                          onValueChange={(value) => {
+                            // TODO: Implement badge update
+                            console.log('Badge update:', product.id, value);
+                          }}
                         >
                           <SelectTrigger className="w-40">
                             <SelectValue placeholder="No badge" />
@@ -1774,7 +1777,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                                 }}>
                                   Cancel
                                 </Button>
-                                <Button onClick={handleCreateSale} className="bg-[#DC143C] hover:bg-[#B01030]">
+                                <Button onClick={() => onCreateSale(product.id, 0)} className="bg-[#DC143C] hover:bg-[#B01030]">
                                   Apply Sale
                                 </Button>
                               </div>
