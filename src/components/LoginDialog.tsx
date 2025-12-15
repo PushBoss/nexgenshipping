@@ -234,6 +234,7 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
                   onChange={(e) => setSignInEmail(e.target.value)}
                   disabled={isLoading}
                   required
+                  autoComplete="email"
                 />
               </div>
               <div className="space-y-2">
@@ -314,6 +315,7 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
                   onChange={(e) => setSignUpEmail(e.target.value)}
                   disabled={isLoading}
                   required
+                  autoComplete="email"
                 />
               </div>
               <div className="space-y-2">
