@@ -373,6 +373,7 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
                   onChange={(e) => setResetEmail(e.target.value)}
                   disabled={isLoading}
                   required
+                  autoComplete="email"
                 />
               </div>
               <Button
