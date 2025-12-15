@@ -799,27 +799,27 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
       return;
     }
 
-    // Delete products one by one
-    let successCount = 0;
-    for (const product of productsToDelete) {
-      try {
-        await onDeleteProduct(product.id);
-        successCount++;
-      } catch (error) {
-        console.error('Error deleting product:', product.id, error);
-      }
+    try {
+      // Use productsService bulk delete for efficiency
+      const { productsService } = await import('../utils/productsService');
+      const deletedCount = await productsService.bulkDelete(bulkDeleteAction);
+      
+      const message = bulkDeleteAction === 'purge'
+        ? `All ${deletedCount} products deleted`
+        : `${deletedCount} ${bulkDeleteAction} product(s) deleted`;
+      
+      toast.success(message);
+      
+      // Reload products by calling parent's refresh (if available) or reload page
+      // The parent component (App.tsx) will reload products automatically
+      window.location.reload();
+    } catch (error) {
+      console.error('Bulk delete error:', error);
+      toast.error(`Failed to delete products: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsBulkDeleteDialogOpen(false);
+      setBulkDeleteAction(null);
     }
-
-    const message = bulkDeleteAction === 'purge'
-      ? `All ${successCount} products deleted`
-      : `${successCount} ${bulkDeleteAction} product(s) deleted`;
-    
-    toast.success(message);
-    setIsBulkDeleteDialogOpen(false);
-    setBulkDeleteAction(null);
-    
-    // Force reload to ensure UI is in sync
-    window.location.reload();
   };
 
   // Filter products based on search and category

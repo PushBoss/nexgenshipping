@@ -503,20 +503,78 @@ function AppContent() {
             <AdminPage
               products={products}
               onAddProduct={async (product) => {
-                // TODO: Implement add product
-                console.log('Add product:', product);
+                try {
+                  await productsService.create(product);
+                  // Reload products
+                  const loadedProducts = await productsService.getAll();
+                  setProducts(loadedProducts);
+                  toast.success('Product added successfully');
+                } catch (error) {
+                  console.error('Failed to add product:', error);
+                  toast.error('Failed to add product');
+                  throw error;
+                }
+              }}
+              onBulkImport={async (productsToImport) => {
+                try {
+                  const count = await productsService.bulkImport(productsToImport);
+                  // Reload products
+                  const loadedProducts = await productsService.getAll();
+                  setProducts(loadedProducts);
+                  return count;
+                } catch (error) {
+                  console.error('Failed to bulk import products:', error);
+                  toast.error('Failed to bulk import products');
+                  throw error;
+                }
               }}
               onUpdateProduct={async (id, updates) => {
-                // TODO: Implement update product
-                console.log('Update product:', id, updates);
+                try {
+                  await productsService.update(id, updates);
+                  // Reload products
+                  const loadedProducts = await productsService.getAll();
+                  setProducts(loadedProducts);
+                  toast.success('Product updated successfully');
+                } catch (error) {
+                  console.error('Failed to update product:', error);
+                  toast.error('Failed to update product');
+                  throw error;
+                }
               }}
               onDeleteProduct={async (id) => {
-                // TODO: Implement delete product
-                console.log('Delete product:', id);
+                try {
+                  await productsService.delete(id);
+                  // Reload products
+                  const loadedProducts = await productsService.getAll();
+                  setProducts(loadedProducts);
+                  toast.success('Product deleted successfully');
+                } catch (error) {
+                  console.error('Failed to delete product:', error);
+                  toast.error('Failed to delete product');
+                  throw error;
+                }
               }}
               onCreateSale={async (productId, discountPercent) => {
-                // TODO: Implement create sale
-                console.log('Create sale:', productId, discountPercent);
+                try {
+                  const product = products.find(p => p.id === productId);
+                  if (!product) {
+                    toast.error('Product not found');
+                    return;
+                  }
+                  const newPrice = product.price * (1 - discountPercent / 100);
+                  await productsService.update(productId, { 
+                    price: newPrice,
+                    originalPrice: product.price 
+                  });
+                  // Reload products
+                  const loadedProducts = await productsService.getAll();
+                  setProducts(loadedProducts);
+                  toast.success(`Sale applied: ${discountPercent}% off`);
+                } catch (error) {
+                  console.error('Failed to create sale:', error);
+                  toast.error('Failed to create sale');
+                  throw error;
+                }
               }}
             />
           ) : (

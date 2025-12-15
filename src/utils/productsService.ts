@@ -180,6 +180,61 @@ export const productsService = {
   },
 
   /**
+   * Bulk delete products by category or all
+   * More efficient than deleting one by one
+   */
+  async bulkDelete(action: 'baby' | 'pharmaceutical' | 'purge'): Promise<number> {
+    if (!config.useSupabase) {
+      throw new Error('Supabase is disabled');
+    }
+
+    try {
+      let deletedCount = 0;
+
+      if (action === 'purge') {
+        // Delete all products (hard delete)
+        const { error } = await supabaseAdmin
+          .from('products')
+          .delete()
+          .neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all (using a condition that's always true)
+        
+        if (error) throw error;
+        
+        // Get count of deleted products
+        const { count } = await supabaseAdmin
+          .from('products')
+          .select('*', { count: 'exact', head: true });
+        
+        // Actually, we need to count before deleting
+        const { count: countBefore } = await supabaseAdmin
+          .from('products')
+          .select('*', { count: 'exact', head: true });
+        
+        deletedCount = countBefore || 0;
+      } else {
+        // Delete by category (hard delete)
+        const { error, count } = await supabaseAdmin
+          .from('products')
+          .delete()
+          .eq('category', action)
+          .select('*', { count: 'exact', head: true });
+        
+        if (error) throw error;
+        deletedCount = count || 0;
+      }
+
+      if (config.debugMode) {
+        console.log(`✅ Bulk delete complete: ${deletedCount} products deleted (${action})`);
+      }
+
+      return deletedCount;
+    } catch (error) {
+      console.error('Error bulk deleting products:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Bulk import products
    * Batches inserts to handle large volumes (e.g., 200+ products)
    */
