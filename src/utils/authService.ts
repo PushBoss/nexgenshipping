@@ -442,8 +442,91 @@ export const authService = {
     }
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      console.log('🔵 Attempting password reset for email:', email);
+      const redirectUrl = `${window.location.origin}/reset-password`;
+      console.log('🔵 Redirect URL:', redirectUrl);
+      
+      // Try using Edge Function first (bypasses CORS)
+      const supabaseUrl = `https://erxkwytqautexizleeov.supabase.co`;
+      const edgeFunctionUrl = `${supabaseUrl}/functions/v1/auth-reset-password`;
+      
+      try {
+        const response = await fetch(edgeFunctionUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': publicAnonKey,
+            'Authorization': `Bearer ${publicAnonKey}`,
+          },
+          body: JSON.stringify({
+            email,
+            redirectTo: redirectUrl,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          console.log('✅ Password reset email sent via Edge Function');
+          return {
+            success: true,
+          };
+        } else {
+          console.warn('⚠️ Edge Function password reset returned error:', result.error);
+          // Continue to fallback
+        }
+      } catch (edgeError: any) {
+        console.warn('⚠️ Edge Function password reset failed, trying direct auth:', edgeError?.message || edgeError);
+        // Continue to fallback
+      }
+
+      // Fallback to direct Supabase Auth (may fail with CORS)
+      const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: redirectUrl,
+      });
+
+      if (error) {
+        // If CORS error, provide helpful message
+        if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
+          return {
+            success: false,
+            error: 'CORS error: Please configure Supabase to allow your domain. Go to Supabase Dashboard → Authentication → URL Configuration and add your domain to Redirect URLs.',
+          };
+        }
+        console.error('❌ Password reset error:', error);
+        throw error;
+      }
+
+      console.log('✅ Password reset email sent successfully:', data);
+      
+      return {
+        success: true,
+      };
+    } catch (error: any) {
+      console.error('❌ Reset password error details:', error);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error code:', error.code);
+      return {
+        success: false,
+        error: error.message || 'Failed to send reset email',
+      };
+    }
+  },
+
+  /**
+   * Update password for current user
+   */
+  async updatePassword(newPassword: string): Promise<AuthResponse> {
+    if (!config.useSupabase) {
+      return {
+        success: false,
+        error: 'Supabase is disabled'
+      };
+    }
+
+    try {
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
       });
 
       if (error) throw error;
@@ -452,10 +535,10 @@ export const authService = {
         success: true,
       };
     } catch (error: any) {
-      console.error('Reset password error:', error);
+      console.error('Update password error:', error);
       return {
         success: false,
-        error: error.message || 'Failed to send reset email',
+        error: error.message || 'Failed to update password',
       };
     }
   },

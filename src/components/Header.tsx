@@ -18,7 +18,7 @@ interface HeaderProps {
   onCategoryChange: (category: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
-  onSearchSubmit: () => void;
+  onSearchSubmit: (query: string) => void;
   currentPage: string;
   onNavigate: (page: 'home' | 'about' | 'contact' | 'cart' | 'privacy' | 'returns' | 'orders' | 'wishlist' | 'account') => void;
   onOpenCategoryBrowser: () => void;
@@ -47,7 +47,7 @@ export function Header({
 
   const handleSearchKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
-      onSearchSubmit();
+      onSearchSubmit(searchQuery);
     }
   };
 
@@ -104,7 +104,7 @@ export function Header({
                   className="flex-1 min-w-0 px-2 sm:px-3 md:px-4 py-2 md:py-2.5 text-gray-100 bg-[#232F3E] focus:outline-none focus:ring-2 focus:ring-[#FF9900] placeholder-gray-400 rounded-l-md md:rounded-l-none text-xs sm:text-sm md:text-base"
                 />
                 <button 
-                  onClick={onSearchSubmit}
+                  onClick={() => onSearchSubmit(searchQuery)}
                   className="bg-[#FF9900] hover:bg-[#F08000] px-2 sm:px-3 md:px-4 py-2 md:py-2.5 rounded-r-md transition-colors shrink-0"
                 >
                   <Search className="h-4 w-4 md:h-5 md:w-5 text-[#232F3E]" />

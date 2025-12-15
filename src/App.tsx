@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Header } from './components/Header';
 import { ProductCard, Product } from './components/ProductCard';
 import { LoginDialog } from './components/LoginDialog';
@@ -16,12 +17,13 @@ import { OrdersPage } from './components/OrdersPage';
 import { WishlistPage } from './components/WishlistPage';
 import { AccountPage } from './components/AccountPage';
 import { AdminPage } from './components/AdminPage';
+import { ResetPasswordPage } from './components/ResetPasswordPage';
 import { Dialog, DialogContent, DialogTitle } from './components/ui/dialog';
 import { Toaster } from './components/ui/sonner';
 import { toast } from 'sonner';
 import { productsService } from './utils/productsService';
-import { cartService } from './utils/cartService';
-import { wishlistService } from './utils/wishlistService';
+import { cartService, CartItem } from './utils/cartService';
+import { wishlistService, WishlistItem } from './utils/wishlistService';
 import { config } from './utils/config';
 import { Currency, getUserCurrency, setUserCurrency, convertCurrency, formatCurrency, updateExchangeRates } from './utils/currencyService';
 import { authService } from './utils/authService';
@@ -53,267 +55,11 @@ import babyBoyShortsImage from 'figma:asset/93e311d341a7c58921f604eb2dee331012ba
 import babyBoyShirtImage from 'figma:asset/71e60a7df11f5c5e9d9fd1d2e0e7a0df7eb6e55d.png';
 */
 
-interface CartItem extends Product {
-  quantity: number;
-}
+// App Content Component (contains the main app logic)
+function AppContent() {
+  const navigate = useNavigate();
+  const location = useLocation();
 
-/* Unused - kept for reference
-const _MOCK_PRODUCTS: Product[] = [
-  // Pharmaceutical Products
-  {
-    id: '1',
-    name: "Benadryl 24's Liquid Gels - Allergy Relief",
-    category: 'pharmaceutical',
-    categoryId: 'cold-cough-allergy-sinus',
-    price: 83.75,
-    rating: 4.7,
-    reviewCount: 1892,
-    image: benadrylImage,
-    inStock: true,
-    badge: 'Best Seller',
-  },
-  {
-    id: '2',
-    name: "Benadryl 24's Tablets - Fast Acting Allergy Relief",
-    category: 'pharmaceutical',
-    categoryId: 'cold-cough-allergy-sinus',
-    price: 63.95,
-    rating: 4.6,
-    reviewCount: 1654,
-    image: benadrylTabletsImage,
-    inStock: true,
-  },
-  {
-    id: '3',
-    name: 'DayQuil 4oz Cold & Flu Relief - 16pc/case',
-    category: 'pharmaceutical',
-    categoryId: 'cold-cough-allergy-sinus',
-    price: 85.00,
-    rating: 4.8,
-    reviewCount: 2341,
-    image: dayquilImage,
-    inStock: true,
-    badge: 'Top Rated',
-  },
-  {
-    id: '4',
-    name: 'DayQuil 16 Liquicaps - Severe Cold & Flu',
-    category: 'pharmaceutical',
-    categoryId: 'cold-cough-allergy-sinus',
-    price: 89.00,
-    rating: 4.7,
-    reviewCount: 1987,
-    image: dayquilLiquicapsImage,
-    inStock: true,
-  },
-  {
-    id: '5',
-    name: 'DayQuil 8oz Cold & Flu Relief Liquid',
-    category: 'pharmaceutical',
-    categoryId: 'cold-cough-allergy-sinus',
-    price: 92.00,
-    rating: 4.8,
-    reviewCount: 2156,
-    image: dayquil8ozImage,
-    inStock: true,
-    badge: 'Best Seller',
-  },
-  {
-    id: '6',
-    name: 'NyQuil Green 8oz - Nighttime Cold & Flu Relief',
-    category: 'pharmaceutical',
-    categoryId: 'cold-cough-allergy-sinus',
-    price: 92.00,
-    rating: 4.7,
-    reviewCount: 2089,
-    image: nyquilGreenImage,
-    inStock: true,
-  },
-  {
-    id: '7',
-    name: 'NyQuil Red 4oz Cold & Flu Relief - 16pc/case',
-    category: 'pharmaceutical',
-    categoryId: 'cold-cough-allergy-sinus',
-    price: 85.00,
-    rating: 4.6,
-    reviewCount: 1876,
-    image: nyquilRedImage,
-    inStock: true,
-  },
-  {
-    id: '8',
-    name: 'Robitussin DM Cough & Chest Congestion 4oz',
-    category: 'pharmaceutical',
-    categoryId: 'cold-cough-allergy-sinus',
-    price: 71.00,
-    rating: 4.5,
-    reviewCount: 1654,
-    image: robitussinImage,
-    inStock: true,
-  },
-  {
-    id: '9',
-    name: 'TheraFlu Green Severe Cold Cough Night Time 6\'s',
-    category: 'pharmaceutical',
-    categoryId: 'cold-cough-allergy-sinus',
-    price: 77.50,
-    rating: 4.6,
-    reviewCount: 1432,
-    image: therafluImage,
-    inStock: true,
-  },
-  {
-    id: '10',
-    name: 'TheraFlu Orange Severe Cold Cough Daytime 6\'s',
-    category: 'pharmaceutical',
-    categoryId: 'cold-cough-allergy-sinus',
-    price: 77.50,
-    rating: 4.6,
-    reviewCount: 1389,
-    image: therafluOrangeImage,
-    inStock: true,
-    badge: 'New',
-  },
-  {
-    id: '11',
-    name: 'Tylenol Children\'s Elixir Cold+Flu',
-    category: 'pharmaceutical',
-    categoryId: 'cold-cough-allergy-sinus',
-    price: 102.00,
-    rating: 4.8,
-    reviewCount: 2234,
-    image: tylenolChildrenImage,
-    inStock: true,
-  },
-  {
-    id: '12',
-    name: 'Benadryl Children Allergy 4oz Cherry',
-    category: 'pharmaceutical',
-    categoryId: 'cold-cough-allergy-sinus',
-    price: 87.95,
-    rating: 4.7,
-    reviewCount: 1987,
-    image: benadrylChildrenImage,
-    inStock: true,
-  },
-  {
-    id: '13',
-    name: 'Baby Boy Jeans Pants 6-24 Months',
-    category: 'baby',
-    categoryId: 'apparel-accessories',
-    price: 14.50,
-    rating: 4.7,
-    reviewCount: 543,
-    image: babyJeansImage,
-    inStock: true,
-  },
-  {
-    id: '14',
-    name: 'Baby Boy Jeans Pants 6-24 Months',
-    category: 'baby',
-    categoryId: 'apparel-accessories',
-    price: 15.50,
-    rating: 4.8,
-    reviewCount: 621,
-    image: babyJeans2Image,
-    inStock: true,
-  },
-  {
-    id: '15',
-    name: 'Baby Boy Set',
-    category: 'baby',
-    categoryId: 'apparel-accessories',
-    price: 6.80,
-    rating: 4.9,
-    reviewCount: 892,
-    image: babyBoySetImage,
-    inStock: true,
-    badge: 'Best Seller',
-  },
-  {
-    id: '16',
-    name: 'Baby Boy Polo Top 6-24 Months',
-    category: 'baby',
-    categoryId: 'apparel-accessories',
-    price: 8.50,
-    rating: 4.6,
-    reviewCount: 734,
-    image: babyPoloTopImage,
-    inStock: true,
-  },
-  {
-    id: '17',
-    name: 'Girl Shorts 2-6 3PCS',
-    category: 'baby',
-    categoryId: 'apparel-accessories',
-    price: 10.50,
-    rating: 4.8,
-    reviewCount: 1156,
-    image: girlShortsImage,
-    inStock: true,
-    badge: 'Best Seller',
-  },
-  {
-    id: '18',
-    name: 'Girl Sets 2-8 Years',
-    category: 'baby',
-    categoryId: 'apparel-accessories',
-    price: 13.50,
-    rating: 4.9,
-    reviewCount: 1423,
-    image: girlSetsImage,
-    inStock: true,
-    badge: 'Best Seller',
-  },
-  {
-    id: '19',
-    name: 'Girl Jeans Shorts 2-8 Years',
-    category: 'baby',
-    categoryId: 'apparel-accessories',
-    price: 15.50,
-    rating: 4.7,
-    reviewCount: 982,
-    image: girlJeansShortsImage,
-    inStock: true,
-  },
-  {
-    id: '20',
-    name: 'Girl Dress 2-8 Years',
-    category: 'baby',
-    categoryId: 'apparel-accessories',
-    price: 25.00,
-    rating: 4.9,
-    reviewCount: 1678,
-    image: girlDressImage,
-    inStock: true,
-    badge: 'Best Seller',
-  },
-  {
-    id: '21',
-    name: 'Baby Boy Shorts',
-    category: 'baby',
-    categoryId: 'apparel-accessories',
-    price: 6.50,
-    rating: 4.7,
-    reviewCount: 892,
-    image: babyBoyShortsImage,
-    inStock: true,
-  },
-  {
-    id: '22',
-    name: 'Baby Boy Shirt',
-    category: 'baby',
-    categoryId: 'apparel-accessories',
-    price: 8.50,
-    rating: 4.8,
-    reviewCount: 1045,
-    image: babyBoyShirtImage,
-    inStock: true,
-  },
-];
-*/
-
-export default function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const [_userEmail, setUserEmail] = useState<string>('');
@@ -325,10 +71,9 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'baby' | 'pharmaceutical'>('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState<'home' | 'about' | 'contact' | 'cart' | 'checkout' | 'privacy' | 'returns' | 'product-detail' | 'orders' | 'wishlist' | 'account' | 'admin'>('home');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [wishlistItems, setWishlistItems] = useState<Product[]>([]);
+  const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
   const [productsLoaded, setProductsLoaded] = useState(false);
   const [selectedCurrency, setSelectedCurrencyState] = useState<Currency>(getUserCurrency());
 
@@ -352,855 +97,484 @@ export default function App() {
       if (user) {
         setIsLoggedIn(true);
         setUserEmail(user.email || '');
-        
-        // Check admin status
-        const isAdmin = await authService.isAdmin();
-        setIsAdmin(isAdmin);
-        
-        // Load user's first name from profile
-        try {
-          const { supabase } = await import('./utils/supabaseClient');
-          const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('first_name')
-            .eq('id', user.id)
-            .single();
-          
-          if (profile?.first_name) {
-            setUserFirstName(profile.first_name);
-          }
-        } catch (error) {
-          console.error('Failed to load user profile:', error);
-        }
-        
-        // Load user's cart and wishlist from database
-        await loadUserCartAndWishlist(user.id);
-        
-        if (config.debugMode) {
-          console.log('✅ Session restored:', user.email);
-        }
+        setUserFirstName(user.user_metadata?.first_name || '');
+        setIsAdmin(await authService.isAdmin());
       }
     };
 
     checkSession();
 
-    // Listen for Supabase auth state changes
+    // Listen for auth state changes
     const subscription = authService.onAuthStateChange(async (user) => {
       if (user) {
         setIsLoggedIn(true);
         setUserEmail(user.email || '');
-        
-        // Check admin status
-        const isAdmin = await authService.isAdmin();
-        setIsAdmin(isAdmin);
-        
-        // Load user's first name
-        try {
-          const { supabase } = await import('./utils/supabaseClient');
-          const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('first_name')
-            .eq('id', user.id)
-            .single();
-          
-          if (profile?.first_name) {
-            setUserFirstName(profile.first_name);
-          }
-        } catch (error) {
-          console.error('Failed to load user profile:', error);
-        }
-        
-        // Load cart and wishlist when user logs in
-        await loadUserCartAndWishlist(user.id);
+        setUserFirstName(user.user_metadata?.first_name || '');
+        setIsAdmin(await authService.isAdmin());
+        setShowLoginDialog(false);
+        toast.success(`Welcome back${user.user_metadata?.first_name ? `, ${user.user_metadata.first_name}` : ''}!`);
       } else {
         setIsLoggedIn(false);
         setUserEmail('');
         setUserFirstName('');
         setIsAdmin(false);
+        // Clear cart and wishlist on sign out
+        setCartItems([]);
+        setWishlistItems([]);
+        toast.success('Signed out successfully');
       }
     });
 
-    return () => {
-      subscription.unsubscribe();
-    };
+    return () => subscription.unsubscribe();
   }, []);
 
-  // Load products from Supabase on app startup
+  // Load products on mount
   useEffect(() => {
     const loadProducts = async () => {
-      if (!productsLoaded) {
-        try {
-          const supabaseProducts = await productsService.getAll();
-          // Always set products from Supabase, even if empty array
-          setProducts(supabaseProducts);
-          if (config.debugMode) {
-            console.log(`✅ Loaded ${supabaseProducts.length} products from Supabase`);
-          }
-          if (supabaseProducts.length === 0) {
-            console.log('ℹ️ No products in Supabase database');
-          }
-        } catch (error) {
-          console.error('Failed to load products from Supabase:', error);
-          toast.error('Failed to load products from database');
-          // Set empty array on error instead of falling back to mock data
-          setProducts([]);
-        } finally {
-          setProductsLoaded(true);
-        }
+      try {
+        const loadedProducts = await productsService.getAll();
+        setProducts(loadedProducts);
+        setProductsLoaded(true);
+      } catch (error) {
+        console.error('Failed to load products:', error);
+        setProductsLoaded(true); // Still set to true to show empty state
       }
     };
 
     loadProducts();
-  }, [productsLoaded]);
+  }, []);
 
-  // Load cart and wishlist from database
-  const loadUserCartAndWishlist = async (userId: string) => {
-    try {
-      console.log('🛒 Loading cart and wishlist from database...');
-      
-      // Load cart items
-      const cartData = await cartService.getAll(userId);
-      const mappedCart: CartItem[] = cartData.map(item => ({
-        id: item.product_id,
-        name: item.product?.name || 'Unknown Product',
-        price: item.product?.price || 0,
-        image: item.product?.image_url || '',
-        category: (item.product?.category as 'baby' | 'pharmaceutical') || 'pharmaceutical',
-        rating: 0,
-        reviewCount: 0,
-        inStock: true,
-        quantity: item.quantity
-      }));
-      setCartItems(mappedCart);
+  // Load cart and wishlist on login
+  useEffect(() => {
+    if (isLoggedIn && config.useSupabase) {
+      const loadUserData = async () => {
+        try {
+          const user = await authService.getCurrentUser();
+          if (user) {
+            // Load cart
+            const cartData = await cartService.getAll(user.id);
+            setCartItems(cartData);
 
-      // Load wishlist items
-      const wishlistData = await wishlistService.getAll(userId);
-      const mappedWishlist = wishlistData.map(item => ({
-        id: item.product_id,
-        name: item.product?.name || 'Unknown Product',
-        price: item.product?.price || 0,
-        image: item.product?.image_url || '',
-        category: item.product?.category as 'baby' | 'pharmaceutical' || 'pharmaceutical',
-        rating: item.product?.rating || 0,
-        reviewCount: item.product?.review_count || 0,
-        inStock: item.product?.in_stock ?? true
-      }));
-      setWishlistItems(mappedWishlist);
+            // Load wishlist
+            const wishlistData = await wishlistService.getAll(user.id);
+            setWishlistItems(wishlistData);
+          }
+        } catch (error) {
+          console.error('Failed to load user data:', error);
+        }
+      };
 
-      console.log(`✅ Loaded ${mappedCart.length} cart items and ${mappedWishlist.length} wishlist items`);
-    } catch (error) {
-      console.error('❌ Failed to load cart/wishlist:', error);
-      toast.error('Failed to load your cart and wishlist');
+      loadUserData();
     }
-  };
+  }, [isLoggedIn]);
 
-  const handleLogin = (email: string, isAdminUser: boolean) => {
-    setIsLoggedIn(true);
-    setUserEmail(email);
-    setIsAdmin(isAdminUser);
-    
-    if (isAdminUser) {
-      setCurrentPage('admin');
-      toast.success('Welcome Admin!');
+  // Navigation handler
+  const handleNavigate = (page: string) => {
+    if (page === 'home') {
+      navigate('/');
     } else {
-      toast.success('Successfully signed in!');
+      navigate(`/${page}`);
     }
   };
 
-  const handleLogout = async () => {
-    if (config.useSupabase) {
-      await authService.signOut();
-    }
-    
-    setIsLoggedIn(false);
-    setIsAdmin(false);
-    setUserEmail('');
-    setUserFirstName('');
-    setCartItems([]);
-    setWishlistItems([]);
-    setCurrentPage('home');
-    toast.success('Successfully signed out!');
-  };
-
-  const handleAddProduct = async (product: Omit<Product, 'id'>) => {
-    try {
-      console.log('➕ Adding product to backend...');
-      const newProduct = await productsService.create(product);
-      setProducts((prev) => [...prev, newProduct]);
-      toast.success('Product added successfully!');
-      console.log('✅ Product added:', newProduct.id);
-    } catch (error) {
-      console.error('❌ Failed to add product:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast.error(`Failed to add product: ${errorMessage}`);
-    }
-  };
-
-  const handleBulkImport = async (products: Omit<Product, 'id'>[]) => {
-    try {
-      console.log(`📦 Bulk importing ${products.length} products...`);
-      const count = await productsService.bulkImport(products);
-      
-      // Reload all products from backend to ensure sync
-      const updatedProducts = await productsService.getAll();
-      setProducts(updatedProducts);
-      
-      toast.success(`Successfully imported ${count} products!`);
-      console.log(`✅ Bulk imported ${count} products`);
-      return count;
-    } catch (error) {
-      console.error('❌ Failed to bulk import products:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast.error(`Failed to bulk import: ${errorMessage}`);
-      throw error;
-    }
-  };
-
-  const handleUpdateProduct = async (id: string, updates: Partial<Product>) => {
-    try {
-      console.log('📝 Updating product in backend:', id);
-      await productsService.update(id, updates);
-      setProducts((prev) =>
-        prev.map((product) => (product.id === id ? { ...product, ...updates } : product))
-      );
-      toast.success('Product updated successfully!');
-      console.log('✅ Product updated:', id);
-    } catch (error) {
-      console.error('❌ Failed to update product:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast.error(`Failed to update product: ${errorMessage}`);
-    }
-  };
-
-  const handleDeleteProduct = async (id: string) => {
-    try {
-      console.log('🗑️ Deleting product from backend:', id);
-      await productsService.hardDelete(id);
-      
-      // Reload products from backend to ensure sync
-      console.log('🔄 Reloading products from backend...');
-      const updatedProducts = await productsService.getAll();
-      setProducts(updatedProducts);
-      
-      toast.success('Product deleted successfully!');
-      console.log(`✅ Products reloaded: ${updatedProducts.length} items in database`);
-      
-      if (updatedProducts.length === 0) {
-        console.log('ℹ️ No products left in database');
-      }
-    } catch (error) {
-      console.error('❌ Failed to delete product:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      toast.error(`Failed to delete product: ${errorMessage}`);
-    }
-  };
-
-  const handleCreateSale = (productId: string, discountPercent: number) => {
-    setProducts((prev) =>
-      prev.map((product) => {
-        if (product.id === productId) {
-          const originalPrice = product.originalPrice || product.price;
-          const newPrice = originalPrice * (1 - discountPercent / 100);
-          return { ...product, originalPrice, price: newPrice };
-        }
-        return product;
-      })
-    );
-  };
-
-  const handleAddToCart = async (productId: string) => {
-    const product = products.find((p) => p.id === productId);
-    if (!product) return;
-
-    try {
-      // If logged in, save to database
-      if (isLoggedIn && config.useSupabase) {
-        const user = await authService.getCurrentUser();
-        if (user?.id) {
-          await cartService.addItem(user.id, productId, 1);
-          console.log('✅ Cart item synced to database');
-        }
-      }
-
-      // Update local state
-      setCartItems((prev) => {
-        const existing = prev.find((item) => item.id === productId);
-        if (existing) {
-          return prev.map((item) =>
-            item.id === productId ? { ...item, quantity: item.quantity + 1 } : item
-          );
-        }
-        return [...prev, { ...product, quantity: 1 }];
-      });
-      toast.success(`${product.name} added to cart!`);
-    } catch (error) {
-      console.error('❌ Failed to add to cart:', error);
-      toast.error('Failed to add item to cart');
-    }
-  };
-
-  const handleUpdateQuantity = async (productId: string, quantity: number) => {
-    try {
-      // If logged in, update in database
-      if (isLoggedIn && config.useSupabase) {
-        const user = await authService.getCurrentUser();
-        if (user?.id) {
-          const cartData = await cartService.getAll(user.id);
-          const cartItem = cartData.find(item => item.product_id === productId);
-          if (cartItem) {
-            await cartService.updateQuantity(cartItem.id, quantity);
-            console.log('✅ Cart quantity synced to database');
-          }
-        }
-      }
-
-      // Update local state
-      setCartItems((prev) =>
-        prev.map((item) => (item.id === productId ? { ...item, quantity } : item))
-      );
-    } catch (error) {
-      console.error('❌ Failed to update quantity:', error);
-      toast.error('Failed to update quantity');
-    }
-  };
-
-  const handleRemoveItem = async (productId: string) => {
-    const product = cartItems.find((item) => item.id === productId);
-    
-    try {
-      // If logged in, remove from database
-      if (isLoggedIn && config.useSupabase) {
-        const user = await authService.getCurrentUser();
-        if (user?.id) {
-          const cartData = await cartService.getAll(user.id);
-          const cartItem = cartData.find(item => item.product_id === productId);
-          if (cartItem) {
-            await cartService.removeItem(cartItem.id);
-            console.log('✅ Cart item removed from database');
-          }
-        }
-      }
-
-      // Update local state
-      setCartItems((prev) => prev.filter((item) => item.id !== productId));
-      toast.success(`${product?.name} removed from cart`);
-    } catch (error) {
-      console.error('❌ Failed to remove item:', error);
-      toast.error('Failed to remove item from cart');
-    }
-  };
-
+  // Handle login prompt
   const handleLoginPrompt = () => {
     setShowLoginDialog(true);
   };
 
-  const handleNavigate = (page: 'home' | 'about' | 'contact' | 'cart' | 'checkout' | 'privacy' | 'returns' | 'orders' | 'wishlist' | 'account' | 'admin') => {
-    setCurrentPage(page);
-  };
-
-  const handleProductClick = (productId: string) => {
-    const product = products.find((p) => p.id === productId);
-    if (product) {
-      setSelectedProduct(product);
-      setCurrentPage('product-detail');
-    }
-  };
-
-  const handleBuyNow = (_productId: string) => {
-    setCurrentPage('checkout');
-  };
-
-  const handleBackToProducts = () => {
-    setSelectedProduct(null);
-    setCurrentPage('home');
-  };
-
-  /* Unused - wishlist handled elsewhere
-  const _handleAddToWishlist = async (productId: string) => {
-    const product = products.find((p) => p.id === productId);
-    if (!product) return;
-    
-    if (wishlistItems.find((item) => item.id === productId)) {
-      toast.info('Item already in wishlist');
-      return;
-    }
-
-    try {
-      // If logged in, save to database
-      if (isLoggedIn && config.useSupabase) {
-        const user = await authService.getCurrentUser();
-        if (user?.id) {
-          await wishlistService.addItem(user.id, productId);
-          console.log('✅ Wishlist item synced to database');
-        }
-      }
-
-      // Update local state
-      setWishlistItems((prev) => [...prev, product]);
-      toast.success(`${product.name} added to wishlist!`);
-    } catch (error) {
-      console.error('❌ Failed to add to wishlist:', error);
-      toast.error('Failed to add item to wishlist');
-    }
-  };
-  */
-
-  const handleRemoveFromWishlist = async (productId: string) => {
-    const product = wishlistItems.find((item) => item.id === productId);
-    
-    try {
-      // If logged in, remove from database
-      if (isLoggedIn && config.useSupabase) {
-        const user = await authService.getCurrentUser();
-        if (user?.id) {
-          await wishlistService.removeByProductId(user.id, productId);
-          console.log('✅ Wishlist item removed from database');
-        }
-      }
-
-      // Update local state
-      setWishlistItems((prev) => prev.filter((item) => item.id !== productId));
-      if (product) {
-        toast.success(`${product.name} removed from wishlist`);
-      }
-    } catch (error) {
-      console.error('❌ Failed to remove from wishlist:', error);
-      toast.error('Failed to remove item from wishlist');
-    }
-  };
-
-  const handleOrderComplete = async () => {
-    try {
-      // If logged in, clear cart from database
-      if (isLoggedIn && config.useSupabase) {
-        const user = await authService.getCurrentUser();
-        if (user?.id) {
-          await cartService.clearCart(user.id);
-          console.log('✅ Cart cleared from database after order');
-        }
-      }
-
-      // Clear local state
-      setCartItems([]);
-      toast.success('Thank you for your order!');
-    } catch (error) {
-      console.error('❌ Failed to clear cart:', error);
-      // Still clear local cart even if database clear fails
-      setCartItems([]);
-      toast.success('Thank you for your order!');
-    }
-  };
-
-  const handleSearchSubmit = () => {
-    if (searchQuery.trim()) {
-      setCurrentPage('home');
-      toast.info(`Searching for "${searchQuery}"`);
-    }
-  };
-
+  // Handle category change
   const handleCategoryChange = (category: 'all' | 'baby' | 'pharmaceutical') => {
     setSelectedCategory(category);
     setSelectedCategoryId(null);
     setSelectedSubcategoryId(null);
-    setCurrentPage('home');
+    setSearchQuery('');
   };
 
-  const handleCategorySelect = (categoryId: string, subcategoryId?: string) => {
-    setSelectedCategoryId(categoryId);
-    setSelectedSubcategoryId(subcategoryId || null);
-    
-    // Determine main category based on categoryId
-    const category = PRODUCT_CATEGORIES.find(pc => 
-      pc.categories.some(c => c.id === categoryId)
-    );
-    
-    if (category) {
-      setSelectedCategory(category.id as 'baby' | 'pharmaceutical');
+  // Handle search
+  const handleSearchSubmit = (query: string) => {
+    setSearchQuery(query);
+    setSelectedCategory('all');
+    setSelectedCategoryId(null);
+    setSelectedSubcategoryId(null);
+  };
+
+  // Handle product click
+  const handleProductClick = (product: Product) => {
+    setSelectedProduct(product);
+    navigate(`/product/${product.id}`);
+  };
+
+  // Handle add to cart
+  const handleAddToCart = async (product: Product, quantity: number = 1) => {
+    if (!isLoggedIn) {
+      handleLoginPrompt();
+      return;
     }
-    
-    setCurrentPage('home');
-    toast.success(`Browsing ${subcategoryId ? 'subcategory' : 'category'}`);
+
+    try {
+      const user = await authService.getCurrentUser();
+      if (!user) return;
+
+      await cartService.addItem(user.id, product.id, quantity);
+      // Reload cart to get updated data
+      const cartData = await cartService.getAll(user.id);
+      setCartItems(cartData);
+      toast.success(`${product.name} added to cart`);
+    } catch (error) {
+      console.error('Failed to add to cart:', error);
+      toast.error('Failed to add item to cart');
+    }
   };
 
-  const handleBreadcrumbNavigate = (
-    category: 'all' | 'baby' | 'pharmaceutical',
-    categoryId: string | null = null,
-    subcategoryId: string | null = null
-  ) => {
-    setSelectedCategory(category);
-    setSelectedCategoryId(categoryId);
-    setSelectedSubcategoryId(subcategoryId);
-    setCurrentPage('home');
+  // Handle remove from cart
+  const handleRemoveFromCart = async (cartItemId: string) => {
+    try {
+      await cartService.removeItem(cartItemId);
+      // Reload cart to get updated data
+      const user = await authService.getCurrentUser();
+      if (user) {
+        const cartData = await cartService.getAll(user.id);
+        setCartItems(cartData);
+      }
+      toast.success('Item removed from cart');
+    } catch (error) {
+      console.error('Failed to remove from cart:', error);
+      toast.error('Failed to remove item from cart');
+    }
   };
 
-  const filteredProducts = products.filter((product) => {
-    // Filter by main category
-    const matchesCategory = selectedCategory === 'all' || product.category === selectedCategory;
-    
-    // Filter by specific categoryId if set
-    const matchesCategoryId = !selectedCategoryId || product.categoryId === selectedCategoryId;
-    
-    // Filter by subcategoryId if set
-    const matchesSubcategoryId = !selectedSubcategoryId || product.subcategoryId === selectedSubcategoryId;
-    
-    // Filter by search query
-    const matchesSearch = !searchQuery.trim() || 
-      product.name.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    return matchesCategory && matchesCategoryId && matchesSubcategoryId && matchesSearch;
+  // Handle update cart quantity
+  const handleUpdateCartQuantity = async (cartItemId: string, quantity: number) => {
+    try {
+      await cartService.updateQuantity(cartItemId, quantity);
+      // Reload cart to get updated data
+      const user = await authService.getCurrentUser();
+      if (user) {
+        const cartData = await cartService.getAll(user.id);
+        setCartItems(cartData);
+      }
+    } catch (error) {
+      console.error('Failed to update cart quantity:', error);
+      toast.error('Failed to update quantity');
+    }
+  };
+
+  // Handle add to wishlist
+  const handleAddToWishlist = async (product: Product) => {
+    if (!isLoggedIn) {
+      handleLoginPrompt();
+      return;
+    }
+
+    try {
+      const user = await authService.getCurrentUser();
+      if (!user) return;
+
+      await wishlistService.addItem(user.id, product.id);
+      // Reload wishlist to get updated data
+      const wishlistData = await wishlistService.getAll(user.id);
+      setWishlistItems(wishlistData);
+      toast.success(`${product.name} added to wishlist`);
+    } catch (error) {
+      console.error('Failed to add to wishlist:', error);
+      toast.error('Failed to add item to wishlist');
+    }
+  };
+
+  // Handle remove from wishlist
+  const handleRemoveFromWishlist = async (wishlistItemId: string) => {
+    try {
+      await wishlistService.removeItem(wishlistItemId);
+      // Reload wishlist to get updated data
+      const user = await authService.getCurrentUser();
+      if (user) {
+        const wishlistData = await wishlistService.getAll(user.id);
+        setWishlistItems(wishlistData);
+      }
+      toast.success('Item removed from wishlist');
+    } catch (error) {
+      console.error('Failed to remove from wishlist:', error);
+      toast.error('Failed to remove item from wishlist');
+    }
+  };
+
+  // Handle checkout
+  const handleCheckout = () => {
+    if (!isLoggedIn) {
+      handleLoginPrompt();
+      return;
+    }
+    navigate('/checkout');
+  };
+
+  // Filter products based on search and category
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = !searchQuery ||
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.category.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesCategory = selectedCategory === 'all' ||
+      (selectedCategory === 'baby' && product.categoryId?.startsWith('baby-')) ||
+      (selectedCategory === 'pharmaceutical' && product.categoryId?.startsWith('cold-'));
+
+    return matchesSearch && matchesCategory;
   });
 
-  const cartCount = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+  // Calculate cart total
+  const cartTotal = cartItems.reduce((total, item) => {
+    if (item.product) {
+      return total + (item.product.price * item.quantity);
+    }
+    return total;
+  }, 0);
+  const cartItemCount = cartItems.reduce((total, item) => total + item.quantity, 0);
 
   return (
-    <div className="min-h-screen bg-[#EAEDED]">
+    <>
       <Header
         isLoggedIn={isLoggedIn}
         userFirstName={userFirstName}
-        onLoginClick={() => setShowLoginDialog(true)}
-        onLogout={handleLogout}
-        cartCount={cartCount}
+        cartCount={cartItemCount}
+        onLoginClick={handleLoginPrompt}
+        onLogout={async () => {
+          await authService.signOut();
+        }}
         selectedCategory={selectedCategory}
         onCategoryChange={(category) => handleCategoryChange(category as 'all' | 'baby' | 'pharmaceutical')}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onSearchSubmit={handleSearchSubmit}
-        currentPage={currentPage}
+        currentPage={location.pathname}
         onNavigate={handleNavigate}
         onOpenCategoryBrowser={() => setShowCategoryBrowser(true)}
         selectedCurrency={selectedCurrency}
         onCurrencyChange={handleCurrencyChange}
       />
 
-      {currentPage === 'about' && <AboutPage />}
-      {currentPage === 'contact' && <ContactPage />}
-      {currentPage === 'privacy' && <PrivacyPolicyPage />}
-      {currentPage === 'returns' && <ReturnPolicyPage />}
-      {currentPage === 'orders' && (
-        isLoggedIn ? (
-          <OrdersPage onProductClick={handleProductClick} />
-        ) : (
-          <div className="max-w-[1200px] mx-auto px-4 py-8">
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-              <h2 className="text-[#003366] mb-2">Sign in to view your orders</h2>
-              <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
-              <button
-                onClick={handleLoginPrompt}
-                className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
-              >
-                Sign In
-              </button>
-            </div>
-          </div>
-        )
-      )}
-      {currentPage === 'wishlist' && (
-        isLoggedIn ? (
-          <WishlistPage
-            wishlistItems={wishlistItems}
-            onRemoveFromWishlist={handleRemoveFromWishlist}
-            onAddToCart={handleAddToCart}
-            onProductClick={handleProductClick}
-          />
-        ) : (
-          <div className="max-w-[1200px] mx-auto px-4 py-8">
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-              <h2 className="text-[#003366] mb-2">Sign in to view your wishlist</h2>
-              <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
-              <button
-                onClick={handleLoginPrompt}
-                className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
-              >
-                Sign In
-              </button>
-            </div>
-          </div>
-        )
-      )}
-      {currentPage === 'account' && (
-        isLoggedIn ? (
-          <AccountPage
-            onNavigateToOrders={() => handleNavigate('orders')}
-            onNavigateToWishlist={() => handleNavigate('wishlist')}
-            isAdmin={isAdmin}
-            onNavigateToAdmin={() => handleNavigate('admin')}
-          />
-        ) : (
-          <div className="max-w-[1200px] mx-auto px-4 py-8">
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-              <h2 className="text-[#003366] mb-2">Sign in to view your account</h2>
-              <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
-              <button
-                onClick={handleLoginPrompt}
-                className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
-              >
-                Sign In
-              </button>
-            </div>
-          </div>
-        )
-      )}
-      {currentPage === 'admin' && (
-        isAdmin ? (
-          <AdminPage
-            products={products}
-            onAddProduct={handleAddProduct}
-            onBulkImport={handleBulkImport}
-            onUpdateProduct={handleUpdateProduct}
-            onDeleteProduct={handleDeleteProduct}
-            onCreateSale={handleCreateSale}
-          />
-        ) : (
-          <div className="max-w-[1200px] mx-auto px-4 py-8">
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-              <h2 className="text-[#003366] mb-2">Access Denied</h2>
-              <p className="text-gray-600 mb-6">You need admin privileges to access this page</p>
-              <button
-                onClick={() => handleNavigate('home')}
-                className="bg-[#003366] hover:bg-[#004488] text-white px-6 py-2 rounded transition-colors"
-              >
-                Go to Home
-              </button>
-            </div>
-          </div>
-        )
-      )}
-      {currentPage === 'cart' && (
-        <CartPage
-          cartItems={cartItems}
-          onUpdateQuantity={handleUpdateQuantity}
-          onRemoveItem={handleRemoveItem}
-          onNavigate={handleNavigate}
-          selectedCurrency={selectedCurrency}
-        />
-      )}
-      {currentPage === 'checkout' && (
-        <CheckoutPage
-          cartItems={cartItems}
-          onNavigate={handleNavigate}
-          onOrderComplete={handleOrderComplete}
-          selectedCurrency={selectedCurrency}
-        />
-      )}
-      {currentPage === 'product-detail' && selectedProduct && (
-        <ProductDetailPage
-          product={selectedProduct}
-          isLoggedIn={isLoggedIn}
-          onAddToCart={handleAddToCart}
-          onBuyNow={handleBuyNow}
-          onBack={handleBackToProducts}
-          onLoginPrompt={handleLoginPrompt}
-          selectedCurrency={selectedCurrency}
-        />
-      )}
+      <Routes>
+        <Route path="/" element={
+          <>
+            <CategoryBreadcrumb
+              selectedCategory={selectedCategory}
+              selectedCategoryId={selectedCategoryId}
+              selectedSubcategoryId={selectedSubcategoryId}
+              onNavigate={(category, categoryId, subcategoryId) => {
+                setSelectedCategory(category);
+                setSelectedCategoryId(categoryId || null);
+                setSelectedSubcategoryId(subcategoryId || null);
+                setSearchQuery('');
+              }}
+            />
 
-      {currentPage === 'home' && (
-        <main className="max-w-[1500px] mx-auto px-4 py-6">
-          {/* Breadcrumb */}
-          <CategoryBreadcrumb
-            selectedCategory={selectedCategory}
-            selectedCategoryId={selectedCategoryId}
-            selectedSubcategoryId={selectedSubcategoryId}
-            onNavigate={handleBreadcrumbNavigate}
-          />
-
-          {/* Banner */}
-          <div className="bg-gradient-to-r from-[#003366] to-[#0055AA] text-white rounded-lg shadow-lg p-4 md:p-6 mb-6">
-            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h1 className="mb-2 text-white">
-                  {searchQuery ? `Search Results for "${searchQuery}"` : 'Welcome to Nex-Gen Shipping'}
-                </h1>
-                <p className="text-blue-100 text-sm md:text-base">
-                  Your trusted source for baby products and pharmaceuticals
-                </p>
-              </div>
-              {!isLoggedIn && (
-                <button
-                  onClick={() => setShowLoginDialog(true)}
-                  className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-4 md:px-6 py-2 rounded transition-colors font-semibold whitespace-nowrap"
-                >
-                  Sign in to see prices
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Featured Products - Only show when not searching and no specific category/subcategory */}
-          {!searchQuery && selectedCategory === 'all' && !selectedCategoryId && !selectedSubcategoryId && (
             <FeaturedSection
-              products={products}
+              products={filteredProducts}
               isLoggedIn={isLoggedIn}
-              onAddToCart={handleAddToCart}
+              onAddToCart={(productId) => {
+                const product = products.find(p => p.id === productId);
+                if (product) handleAddToCart(product);
+              }}
               onLoginPrompt={handleLoginPrompt}
+              onProductClick={(productId) => {
+                const product = products.find(p => p.id === productId);
+                if (product) handleProductClick(product);
+              }}
+            />
+          </>
+        } />
+
+        <Route path="/about" element={<AboutPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+        <Route path="/privacy" element={<PrivacyPolicyPage />} />
+        <Route path="/returns" element={<ReturnPolicyPage />} />
+
+        <Route path="/cart" element={
+          <CartPage
+            cartItems={cartItems}
+            onUpdateQuantity={handleUpdateCartQuantity}
+            onRemoveItem={handleRemoveFromCart}
+            onCheckout={handleCheckout}
+            selectedCurrency={selectedCurrency}
+          />
+        } />
+
+        <Route path="/checkout" element={
+          <CheckoutPage
+            cartItems={cartItems}
+            onUpdateQuantity={handleUpdateCartQuantity}
+            onRemoveItem={handleRemoveFromCart}
+            selectedCurrency={selectedCurrency}
+            onOrderComplete={() => navigate('/orders')}
+          />
+        } />
+
+        <Route path="/product/:id" element={
+          <ProductDetailPage
+            product={selectedProduct}
+            isLoggedIn={isLoggedIn}
+            onAddToCart={(productId) => {
+              const product = products.find(p => p.id === productId);
+              if (product) handleAddToCart(product);
+            }}
+            onBuyNow={(productId) => {
+              const product = products.find(p => p.id === productId);
+              if (product) {
+                handleAddToCart(product);
+                navigate('/checkout');
+              }
+            }}
+            onBack={() => navigate(-1)}
+            onLoginPrompt={handleLoginPrompt}
+            selectedCurrency={selectedCurrency}
+          />
+        } />
+
+        <Route path="/orders" element={
+          isLoggedIn ? (
+            <OrdersPage onProductClick={(productId) => {
+              const product = products.find(p => p.id === productId);
+              if (product) handleProductClick(product);
+            }} />
+          ) : (
+            <div className="max-w-[1200px] mx-auto px-4 py-8">
+              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                <h2 className="text-[#003366] mb-2">Sign in to view your orders</h2>
+                <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
+                <button
+                  onClick={handleLoginPrompt}
+                  className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
+                >
+                  Sign In
+                </button>
+              </div>
+            </div>
+          )
+        } />
+
+        <Route path="/wishlist" element={
+          isLoggedIn ? (
+            <WishlistPage
+              wishlistItems={wishlistItems}
+              onRemoveFromWishlist={handleRemoveFromWishlist}
+              onAddToCart={handleAddToCart}
               onProductClick={handleProductClick}
             />
-          )}
-
-          {/* Category indicator */}
-          <div className="mb-4">
-            <h2 className="text-[#003366]">
-              {(() => {
-                if (selectedSubcategoryId) {
-                  // Find the subcategory name
-                  const category = PRODUCT_CATEGORIES.flatMap(pc => pc.categories).find(c => c.id === selectedCategoryId);
-                  const subcategory = category?.subcategories?.find(sc => sc.id === selectedSubcategoryId);
-                  return subcategory?.name || 'Products';
-                } else if (selectedCategoryId) {
-                  // Find the category name
-                  const category = PRODUCT_CATEGORIES.flatMap(pc => pc.categories).find(c => c.id === selectedCategoryId);
-                  return category?.name || 'Products';
-                } else if (selectedCategory === 'all') {
-                  return 'All Products';
-                } else if (selectedCategory === 'baby') {
-                  return 'Baby Products';
-                } else if (selectedCategory === 'pharmaceutical') {
-                  return 'Pharmaceuticals';
-                }
-                return 'Products';
-              })()}
-              <span className="text-gray-600 ml-2">
-                ({filteredProducts.length} items)
-              </span>
-            </h2>
-          </div>
-
-          {/* Products grid */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {filteredProducts.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                isLoggedIn={isLoggedIn}
-                onAddToCart={handleAddToCart}
-                onLoginPrompt={handleLoginPrompt}
-                onProductClick={handleProductClick}
-                selectedCurrency={selectedCurrency}
-              />
-            ))}
-          </div>
-
-          {filteredProducts.length === 0 && (
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-              <p className="text-gray-600 mb-2">No products found matching your search.</p>
-              <p className="text-sm text-gray-500">Try a different search term or browse all products.</p>
-            </div>
-          )}
-        </main>
-      )}
-
-      {/* Footer */}
-      <footer className="bg-[#003366] text-white mt-12">
-        <div className="max-w-[1500px] mx-auto px-4 py-8 md:py-12">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
-            <div>
-              <div className="mb-4">
-                <img 
-                  src={logoImage} 
-                  alt="NEX-GEN Shipping Company" 
-                  className="h-16 w-auto mb-3"
-                />
-                <p className="text-sm text-blue-200 italic">
-                  Your trusted partner in health and wellness
-                </p>
+          ) : (
+            <div className="max-w-[1200px] mx-auto px-4 py-8">
+              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                <h2 className="text-[#003366] mb-2">Sign in to view your wishlist</h2>
+                <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
+                <button
+                  onClick={handleLoginPrompt}
+                  className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
+                >
+                  Sign In
+                </button>
               </div>
             </div>
-            <div>
-              <h3 className="mb-4">Products</h3>
-              <ul className="space-y-2 text-sm text-gray-300">
-                <li 
-                  onClick={() => {
-                    setSelectedCategory('baby');
-                    setCurrentPage('home');
-                  }}
-                  className="hover:underline cursor-pointer hover:text-white transition-colors"
-                >
-                  Baby Products
-                </li>
-                <li 
-                  onClick={() => {
-                    setSelectedCategory('pharmaceutical');
-                    setCurrentPage('home');
-                  }}
-                  className="hover:underline cursor-pointer hover:text-white transition-colors"
-                >
-                  Pharmaceuticals
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="mb-4">Customer Service</h3>
-              <ul className="space-y-2 text-sm text-gray-300">
-                <li 
-                  onClick={() => handleNavigate('contact')}
-                  className="hover:underline cursor-pointer hover:text-white transition-colors"
-                >
-                  Contact Us
-                </li>
-                <li 
-                  onClick={() => handleNavigate('about')}
-                  className="hover:underline cursor-pointer hover:text-white transition-colors"
-                >
-                  About Us
-                </li>
-              </ul>
-            </div>
-            <div>
-              <h3 className="mb-4">Legal & Policies</h3>
-              <ul className="space-y-2 text-sm text-gray-300">
-                <li 
-                  onClick={() => handleNavigate('privacy')}
-                  className="hover:underline cursor-pointer hover:text-white transition-colors"
-                >
-                  Privacy Policy
-                </li>
-                <li 
-                  onClick={() => handleNavigate('returns')}
-                  className="hover:underline cursor-pointer hover:text-white transition-colors"
-                >
-                  Return Policy
-                </li>
-              </ul>
-            </div>
-          </div>
-          <div className="border-t border-blue-800 mt-8 pt-6">
-            <div className="flex flex-wrap justify-center gap-4 md:gap-6 text-xs md:text-sm text-blue-200 mb-4">
-              <span 
-                onClick={() => handleNavigate('privacy')}
-                className="hover:underline cursor-pointer hover:text-white transition-colors"
-              >
-                Privacy Policy
-              </span>
-              <span 
-                onClick={() => handleNavigate('returns')}
-                className="hover:underline cursor-pointer hover:text-white transition-colors"
-              >
-                Return Policy
-              </span>
-            </div>
-            <p className="text-center text-xs md:text-sm text-blue-200">&copy; 2025 Nex-Gen Shipping Agency. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+          )
+        } />
 
+        <Route path="/account" element={
+          isLoggedIn ? (
+            <AccountPage
+              onNavigateToOrders={() => navigate('/orders')}
+              onNavigateToWishlist={() => navigate('/wishlist')}
+              isAdmin={isAdmin}
+              onNavigateToAdmin={() => navigate('/admin')}
+            />
+          ) : (
+            <div className="max-w-[1200px] mx-auto px-4 py-8">
+              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                <h2 className="text-[#003366] mb-2">Sign in to view your account</h2>
+                <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
+                <button
+                  onClick={handleLoginPrompt}
+                  className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
+                >
+                  Sign In
+                </button>
+              </div>
+            </div>
+          )
+        } />
+
+        <Route path="/admin" element={
+          isLoggedIn && isAdmin ? (
+            <AdminPage
+              products={products}
+              onAddProduct={async (product) => {
+                // TODO: Implement add product
+                console.log('Add product:', product);
+              }}
+              onUpdateProduct={async (id, updates) => {
+                // TODO: Implement update product
+                console.log('Update product:', id, updates);
+              }}
+              onDeleteProduct={async (id) => {
+                // TODO: Implement delete product
+                console.log('Delete product:', id);
+              }}
+              onCreateSale={async (productId, discountPercent) => {
+                // TODO: Implement create sale
+                console.log('Create sale:', productId, discountPercent);
+              }}
+            />
+          ) : (
+            <div className="max-w-[1200px] mx-auto px-4 py-8">
+              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                <h2 className="text-[#003366] mb-2">Access Denied</h2>
+                <p className="text-gray-600 mb-6">You must be an admin to access this page</p>
+                <button
+                  onClick={() => navigate('/')}
+                  className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
+                >
+                  Go Home
+                </button>
+              </div>
+            </div>
+          )
+        } />
+
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+      </Routes>
+
+      {/* Login Dialog */}
       <LoginDialog
         open={showLoginDialog}
         onOpenChange={setShowLoginDialog}
-        onLogin={handleLogin}
+        onLogin={(email, isAdmin) => {
+          // Login is handled by auth state change listener
+          console.log('Login successful:', email, isAdmin);
+        }}
       />
 
       {/* Category Browser Dialog */}
       <Dialog open={showCategoryBrowser} onOpenChange={setShowCategoryBrowser}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto p-0" aria-describedby={undefined}>
-          <DialogTitle className="sr-only">Shop by Category</DialogTitle>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogTitle>Shop by Category</DialogTitle>
           <CategoryBrowser
-            onCategorySelect={handleCategorySelect}
+            onCategorySelect={(categoryId, subcategoryId) => {
+              setSelectedCategoryId(categoryId);
+              setSelectedSubcategoryId(subcategoryId);
+              setShowCategoryBrowser(false);
+            }}
             onClose={() => setShowCategoryBrowser(false)}
           />
         </DialogContent>
       </Dialog>
-      
-      <Toaster position="top-right" />
-    </div>
+
+      <Toaster />
+    </>
   );
 }
+
+// Main App Component with Router
+function App() {
+  return (
+    <Router>
+      <AppContent />
+    </Router>
+  );
+}
+
+export default App;

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { CreditCard, Lock, MapPin, User, Package, ArrowLeft, AlertCircle } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -6,24 +7,22 @@ import { Label } from './ui/label';
 import { RadioGroup, RadioGroupItem } from './ui/radio-group';
 import { Separator } from './ui/separator';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { Product } from './ProductCard';
-import { toast } from 'sonner';
+import { CartItem } from '../utils/cartService';
 import { Currency, convertCurrency, formatCurrency } from '../utils/currencyService';
 import { isDimePayConfigured } from '../utils/dimepayService';
+import { toast } from 'sonner';
 import { DimePayPaymentForm } from './DimePayPaymentForm';
-
-interface CartItem extends Product {
-  quantity: number;
-}
 
 interface CheckoutPageProps {
   cartItems: CartItem[];
-  onNavigate: (page: 'home' | 'cart') => void;
+  onUpdateQuantity: (cartItemId: string, quantity: number) => void;
+  onRemoveItem: (cartItemId: string) => void;
   onOrderComplete: () => void;
   selectedCurrency?: Currency;
 }
 
-export function CheckoutPage({ cartItems, onNavigate, onOrderComplete, selectedCurrency = 'USD' }: CheckoutPageProps) {
+export function CheckoutPage({ cartItems, onUpdateQuantity, onRemoveItem, onOrderComplete, selectedCurrency = 'USD' }: CheckoutPageProps) {
+  const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [shippingMethod, setShippingMethod] = useState('standard');
   const [dimePayConfigured, setDimePayConfigured] = useState(false);
@@ -42,8 +41,9 @@ export function CheckoutPage({ cartItems, onNavigate, onOrderComplete, selectedC
 
   // Calculate totals in selected currency
   const subtotal = cartItems.reduce((sum, item) => {
-    const itemCurrency = item.currency || 'USD';
-    const convertedPrice = convertCurrency(item.price, itemCurrency, selectedCurrency);
+    if (!item.product) return sum;
+    const itemCurrency = 'USD'; // Assuming products are stored in USD
+    const convertedPrice = convertCurrency(item.product.price, itemCurrency, selectedCurrency);
     return sum + convertedPrice * item.quantity;
   }, 0);
   const tax = subtotal * 0.08;
@@ -90,7 +90,7 @@ export function CheckoutPage({ cartItems, onNavigate, onOrderComplete, selectedC
     toast.success('Order placed successfully! Thank you for your purchase.');
     setTimeout(() => {
       onOrderComplete();
-      onNavigate('home');
+      navigate('/');
     }, 2000);
   };
 
@@ -99,7 +99,7 @@ export function CheckoutPage({ cartItems, onNavigate, onOrderComplete, selectedC
       {/* Header */}
       <div className="mb-6">
         <button
-          onClick={() => onNavigate('cart')}
+          onClick={() => navigate('/cart')}
           className="flex items-center gap-2 text-[#003366] hover:text-[#0055AA] mb-4"
         >
           <ArrowLeft className="h-4 w-4" />
@@ -375,20 +375,20 @@ export function CheckoutPage({ cartItems, onNavigate, onOrderComplete, selectedC
                   {cartItems.map((item) => (
                     <div key={item.id} className="flex gap-4">
                       <ImageWithFallback
-                        src={item.image}
-                        alt={item.name}
+                        src={item.product?.image_url || ''}
+                        alt={item.product?.name || ''}
                         className="w-16 h-16 object-cover rounded"
                       />
                       <div className="flex-1">
-                        <p className="text-sm line-clamp-2">{item.name}</p>
+                        <p className="text-sm line-clamp-2">{item.product?.name || ''}</p>
                         <p className="text-sm text-gray-600">Qty: {item.quantity}</p>
                       </div>
                       <div className="text-right">
                         <p className="font-semibold">
-                          {formatCurrency(
-                            convertCurrency(item.price, item.currency || 'USD', selectedCurrency) * item.quantity,
+                          {item.product ? formatCurrency(
+                            convertCurrency(item.product.price, 'USD', selectedCurrency) * item.quantity,
                             selectedCurrency
-                          )}
+                          ) : ''}
                         </p>
                       </div>
                     </div>

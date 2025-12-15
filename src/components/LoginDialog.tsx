@@ -22,7 +22,7 @@ interface LoginDialogProps {
 }
 
 export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
-  const [activeTab, setActiveTab] = useState<'signin' | 'signup'>('signin');
+  const [activeTab, setActiveTab] = useState<'signin' | 'signup' | 'reset'>('signin');
   const [isLoading, setIsLoading] = useState(false);
   
   // Sign in state
@@ -36,6 +36,9 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
 
+  // Reset password state
+  const [resetEmail, setResetEmail] = useState('');
+
   const resetForms = () => {
     setSignInEmail('');
     setSignInPassword('');
@@ -44,6 +47,7 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
     setSignUpConfirmPassword('');
     setFirstName('');
     setLastName('');
+    setResetEmail('');
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -159,6 +163,44 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!resetEmail) {
+      toast.error('Please enter your email address');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      if (config.useSupabase) {
+        console.log('🔵 Sending password reset email');
+        const result = await authService.resetPassword(resetEmail);
+        
+        if (result.success) {
+          toast.success('Password reset email sent! Please check your inbox.', {
+            duration: 5000,
+          });
+          setResetEmail('');
+          setActiveTab('signin');
+        } else {
+          toast.error(result.error || 'Failed to send reset email');
+        }
+      } else {
+        // Mock reset (fallback)
+        toast.success('Password reset email sent! (Demo mode)');
+        setResetEmail('');
+        setActiveTab('signin');
+      }
+    } catch (error) {
+      console.error('Reset password error:', error);
+      toast.error('An error occurred while sending reset email');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
@@ -172,10 +214,11 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
           </DialogDescription>
         </DialogHeader>
         
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'signin' | 'signup')}>
-          <TabsList className="grid w-full grid-cols-2">
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'signin' | 'signup' | 'reset')}>
+          <TabsList className="grid w-full grid-cols-3">
             <TabsTrigger value="signin">Sign In</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
+            <TabsTrigger value="reset">Reset Password</TabsTrigger>
           </TabsList>
           
           {/* Sign In Tab */}
@@ -203,6 +246,7 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
                   onChange={(e) => setSignInPassword(e.target.value)}
                   disabled={isLoading}
                   required
+                  autoComplete="current-password"
                 />
               </div>
               <Button
@@ -212,6 +256,17 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
               >
                 {isLoading ? 'Signing in...' : 'Sign In'}
               </Button>
+              
+              <div className="text-center">
+                <Button
+                  type="button"
+                  variant="link"
+                  className="text-sm text-[#003366] hover:text-[#002244] p-0 h-auto"
+                  onClick={() => setActiveTab('reset')}
+                >
+                  Forgot your password?
+                </Button>
+              </div>
               
               {!config.useSupabase && (
                 <div className="text-center text-xs text-gray-600 mt-2">
@@ -271,6 +326,7 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
                   onChange={(e) => setSignUpPassword(e.target.value)}
                   disabled={isLoading}
                   required
+                  autoComplete="new-password"
                 />
               </div>
               <div className="space-y-2">
@@ -283,6 +339,7 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
                   onChange={(e) => setSignUpConfirmPassword(e.target.value)}
                   disabled={isLoading}
                   required
+                  autoComplete="new-password"
                 />
               </div>
               <Button
@@ -296,6 +353,48 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
               {config.useSupabase && (
                 <p className="text-xs text-center text-gray-600">
                   By creating an account, you'll receive a verification email
+                </p>
+              )}
+            </form>
+          </TabsContent>
+          
+          {/* Reset Password Tab */}
+          <TabsContent value="reset">
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reset-email">Email</Label>
+                <Input
+                  id="reset-email"
+                  type="email"
+                  placeholder="you@example.com"
+                  value={resetEmail}
+                  onChange={(e) => setResetEmail(e.target.value)}
+                  disabled={isLoading}
+                  required
+                />
+              </div>
+              <Button
+                type="submit"
+                className="w-full bg-[#003366] hover:bg-[#002244] text-white"
+                disabled={isLoading}
+              >
+                {isLoading ? 'Sending...' : 'Send Reset Email'}
+              </Button>
+              
+              <div className="text-center">
+                <Button
+                  type="button"
+                  variant="link"
+                  className="text-sm text-[#003366] hover:text-[#002244] p-0 h-auto"
+                  onClick={() => setActiveTab('signin')}
+                >
+                  Back to Sign In
+                </Button>
+              </div>
+              
+              {config.useSupabase && (
+                <p className="text-xs text-center text-gray-600">
+                  We'll send you a link to reset your password
                 </p>
               )}
             </form>

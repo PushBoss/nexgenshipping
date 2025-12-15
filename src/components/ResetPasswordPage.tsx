@@ -1,0 +1,180 @@
+import { useState, useEffect } from 'react';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { toast } from 'sonner';
+import { authService } from '../utils/authService';
+import { config } from '../utils/config';
+import logoImage from '../assets/nexgen-logo-new.png';
+
+export function ResetPasswordPage() {
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    // Check if we have a valid session for password reset
+    const checkSession = async () => {
+      if (!config.useSupabase) return;
+
+      // Check if we have hash fragments from the email link
+      const hashParams = new URLSearchParams(window.location.hash.substring(1));
+      const accessToken = hashParams.get('access_token');
+      const type = hashParams.get('type');
+
+      // If we have a password recovery token in the URL, exchange it for a session
+      if (accessToken && type === 'recovery') {
+        try {
+          const { supabase } = await import('../utils/supabaseClient');
+          const { error: sessionError } = await supabase.auth.setSession({
+            access_token: accessToken,
+            refresh_token: hashParams.get('refresh_token') || '',
+          });
+
+          if (sessionError) {
+            console.error('Session error:', sessionError);
+            toast.error('Invalid or expired reset link. Please request a new password reset.');
+            setTimeout(() => {
+              window.location.href = '/';
+            }, 2000);
+            return;
+          }
+
+          // Clear the hash from URL
+          window.history.replaceState(null, '', window.location.pathname);
+        } catch (error) {
+          console.error('Error setting session:', error);
+          toast.error('Invalid or expired reset link. Please request a new password reset.');
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+          return;
+        }
+      }
+
+      // Verify we have a valid user session
+      const user = await authService.getCurrentUser();
+      if (!user) {
+        toast.error('Invalid or expired reset link. Please request a new password reset.');
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+        return;
+      }
+    };
+
+    checkSession();
+  }, []);
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!password) {
+      toast.error('Please enter a new password');
+      return;
+    }
+
+    if (password.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      if (config.useSupabase) {
+        const result = await authService.updatePassword(password);
+        
+        if (result.success) {
+          toast.success('Password updated successfully! You can now sign in with your new password.');
+          // Redirect to home after a short delay
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+        } else {
+          toast.error(result.error || 'Failed to update password');
+        }
+      } else {
+        // Mock update (fallback)
+        toast.success('Password updated successfully! (Demo mode)');
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Reset password error:', error);
+      toast.error('An error occurred while updating your password');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <img src={logoImage} alt="NEX-GEN Shipping Agency" className="h-16 w-auto" />
+          </div>
+          <CardTitle className="text-[#003366]">Reset Your Password</CardTitle>
+          <CardDescription>
+            Enter your new password below
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="password">New Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="At least 6 characters"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                disabled={isLoading}
+                required
+                autoComplete="new-password"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirm New Password</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                placeholder="Re-enter your password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={isLoading}
+                required
+                autoComplete="new-password"
+              />
+            </div>
+            <Button
+              type="submit"
+              className="w-full bg-[#DC143C] hover:bg-[#B01030] text-white"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Updating...' : 'Update Password'}
+            </Button>
+          </form>
+          
+          <div className="mt-4 text-center">
+            <Button
+              variant="link"
+              className="text-sm text-[#003366] hover:text-[#002244] p-0"
+              onClick={() => window.location.href = '/'}
+            >
+              Back to Home
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

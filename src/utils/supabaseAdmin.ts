@@ -16,7 +16,8 @@ if (!serviceRoleKey) {
 export const supabaseAdmin = createClient(supabaseUrl, serviceRoleKey || '', {
   auth: {
     autoRefreshToken: false,
-    persistSession: false
+    persistSession: false,
+    storageKey: 'supabase-admin'
   },
   global: {
     headers: {

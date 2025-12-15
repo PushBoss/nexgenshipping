@@ -2,13 +2,13 @@ import { Heart, Trash2, ShoppingCart } from 'lucide-react';
 import { Button } from './ui/button';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Star } from 'lucide-react';
-import { Product } from './ProductCard';
+import { WishlistItem } from '../utils/wishlistService';
 
 interface WishlistPageProps {
-  wishlistItems: Product[];
+  wishlistItems: WishlistItem[];
   onRemoveFromWishlist: (productId: string) => void;
-  onAddToCart: (productId: string) => void;
-  onProductClick: (productId: string) => void;
+  onAddToCart: (product: any) => void;
+  onProductClick: (product: any) => void;
 }
 
 export function WishlistPage({
@@ -55,25 +55,28 @@ export function WishlistPage({
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {wishlistItems.map((product) => (
+        {wishlistItems.map((item) => {
+          if (!item.product) return null;
+          const product = item.product;
+          return (
           <div
-            key={product.id}
+            key={item.id}
             className="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-all duration-200 p-4 flex flex-col"
           >
             {/* Image */}
             <div 
               className="relative mb-3 overflow-hidden rounded cursor-pointer group"
-              onClick={() => onProductClick(product.id)}
+              onClick={() => onProductClick(product)}
             >
               <ImageWithFallback
-                src={product.image}
+                src={product.image_url || ''}
                 alt={product.name}
                 className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
               />
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onRemoveFromWishlist(product.id);
+                  onRemoveFromWishlist(item.product_id);
                 }}
                 className="absolute top-2 right-2 bg-white hover:bg-red-50 rounded-full p-2 shadow-md transition-colors"
                 title="Remove from wishlist"
@@ -86,7 +89,7 @@ export function WishlistPage({
             <div className="flex-1 flex flex-col">
               <h3 
                 className="mb-2 line-clamp-2 hover:text-[#003366] cursor-pointer transition-colors text-gray-900"
-                onClick={() => onProductClick(product.id)}
+                onClick={() => onProductClick(product)}
               >
                 {product.name}
               </h3>
@@ -98,7 +101,7 @@ export function WishlistPage({
                     <Star
                       key={i}
                       className={`h-4 w-4 ${
-                        i < Math.floor(product.rating)
+                        i < Math.floor(product.rating || 0)
                           ? 'fill-[#FF9900] text-[#FF9900]'
                           : 'text-gray-300'
                       }`}
@@ -106,7 +109,7 @@ export function WishlistPage({
                   ))}
                 </div>
                 <span className="text-sm text-blue-600">
-                  {product.reviewCount}
+                  {product.review_count || 0}
                 </span>
               </div>
 
@@ -114,19 +117,14 @@ export function WishlistPage({
               <div className="mb-3">
                 <div className="flex items-baseline gap-2">
                   <span className="text-[#DC143C] text-xl">
-                    ${product.price.toFixed(2)}
+                    ${(product.price || 0).toFixed(2)}
                   </span>
-                  {product.originalPrice && (
-                    <span className="text-sm text-gray-500 line-through">
-                      ${product.originalPrice.toFixed(2)}
-                    </span>
-                  )}
                 </div>
               </div>
 
               {/* Stock status */}
               <div className="mb-3">
-                {product.inStock ? (
+                {product.in_stock ? (
                   <span className="text-sm text-green-700">In Stock</span>
                 ) : (
                   <span className="text-sm text-red-600">Out of Stock</span>
@@ -136,15 +134,15 @@ export function WishlistPage({
               {/* Action buttons */}
               <div className="mt-auto space-y-2">
                 <Button
-                  onClick={() => onAddToCart(product.id)}
-                  disabled={!product.inStock}
+                  onClick={() => onAddToCart(product)}
+                  disabled={!product.in_stock}
                   className="w-full bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <ShoppingCart className="h-4 w-4 mr-2" />
                   Add to Cart
                 </Button>
                 <Button
-                  onClick={() => onRemoveFromWishlist(product.id)}
+                  onClick={() => onRemoveFromWishlist(item.product_id)}
                   variant="outline"
                   className="w-full border-gray-300 hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors"
                 >
@@ -154,7 +152,8 @@ export function WishlistPage({
               </div>
             </div>
           </div>
-        ))}
+        );
+        }).filter(Boolean)}
       </div>
     </div>
   );

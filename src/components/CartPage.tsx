@@ -1,26 +1,23 @@
 import { Minus, Plus, Trash2, ShoppingBag, ArrowRight } from 'lucide-react';
 import { Button } from './ui/button';
 import { ImageWithFallback } from './figma/ImageWithFallback';
-import { Product } from './ProductCard';
+import { CartItem } from '../utils/cartService';
 import { Currency, convertCurrency, formatCurrency } from '../utils/currencyService';
-
-interface CartItem extends Product {
-  quantity: number;
-}
 
 interface CartPageProps {
   cartItems: CartItem[];
   onUpdateQuantity: (productId: string, quantity: number) => void;
   onRemoveItem: (productId: string) => void;
-  onNavigate: (page: 'home' | 'checkout') => void;
+  onCheckout: () => void;
   selectedCurrency?: Currency;
 }
 
-export function CartPage({ cartItems, onUpdateQuantity, onRemoveItem, onNavigate, selectedCurrency = 'USD' }: CartPageProps) {
+export function CartPage({ cartItems, onUpdateQuantity, onRemoveItem, onCheckout, selectedCurrency = 'USD' }: CartPageProps) {
   // Calculate totals in selected currency
   const subtotal = cartItems.reduce((sum, item) => {
-    const itemCurrency = item.currency || 'USD';
-    const convertedPrice = convertCurrency(item.price, itemCurrency, selectedCurrency);
+    if (!item.product) return sum;
+    const itemCurrency = 'USD'; // Assuming products are stored in USD
+    const convertedPrice = convertCurrency(item.product.price, itemCurrency, selectedCurrency);
     return sum + convertedPrice * item.quantity;
   }, 0);
   const tax = subtotal * 0.08; // 8% tax
@@ -41,7 +38,7 @@ export function CartPage({ cartItems, onUpdateQuantity, onRemoveItem, onNavigate
             Looks like you haven't added any items to your cart yet.
           </p>
           <Button
-            onClick={() => onNavigate('home')}
+            onClick={() => window.location.href = '/'}
             className="bg-[#DC143C] hover:bg-[#B01030] text-white"
           >
             Continue Shopping
@@ -67,8 +64,8 @@ export function CartPage({ cartItems, onUpdateQuantity, onRemoveItem, onNavigate
                 {/* Product Image */}
                 <div className="shrink-0">
                   <ImageWithFallback
-                    src={item.image}
-                    alt={item.name}
+                    src={item.product?.image_url || ''}
+                    alt={item.product?.name || ''}
                     className="w-20 h-20 md:w-24 md:h-24 object-cover rounded"
                   />
                 </div>
@@ -76,24 +73,16 @@ export function CartPage({ cartItems, onUpdateQuantity, onRemoveItem, onNavigate
                 {/* Product Info */}
                 <div className="flex-1 min-w-0">
                   <h3 className="text-[#003366] mb-2 line-clamp-2 text-sm md:text-base">
-                    {item.name}
+                    {item.product?.name || ''}
                   </h3>
                   
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-[#DC143C] font-semibold">
-                      {formatCurrency(
-                        convertCurrency(item.price, item.currency || 'USD', selectedCurrency),
+                      {item.product ? formatCurrency(
+                        convertCurrency(item.product.price, 'USD', selectedCurrency),
                         selectedCurrency
-                      )}
+                      ) : ''}
                     </span>
-                    {item.originalPrice && (
-                      <span className="text-sm text-gray-500 line-through">
-                        {formatCurrency(
-                          convertCurrency(item.originalPrice, item.currency || 'USD', selectedCurrency),
-                          selectedCurrency
-                        )}
-                      </span>
-                    )}
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
@@ -131,10 +120,10 @@ export function CartPage({ cartItems, onUpdateQuantity, onRemoveItem, onNavigate
                     <div className="ml-auto">
                       <p className="text-sm text-gray-600">Subtotal:</p>
                       <p className="font-semibold text-[#003366]">
-                        {formatCurrency(
-                          convertCurrency(item.price, item.currency || 'USD', selectedCurrency) * item.quantity,
+                        {item.product ? formatCurrency(
+                          convertCurrency(item.product.price, 'USD', selectedCurrency) * item.quantity,
                           selectedCurrency
-                        )}
+                        ) : ''}
                       </p>
                     </div>
                   </div>
@@ -187,8 +176,8 @@ export function CartPage({ cartItems, onUpdateQuantity, onRemoveItem, onNavigate
               </div>
             </div>
 
-            <Button 
-              onClick={() => onNavigate('checkout')}
+            <Button
+              onClick={onCheckout}
               className="w-full bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 font-semibold mb-3"
             >
               Proceed to Checkout
@@ -197,13 +186,11 @@ export function CartPage({ cartItems, onUpdateQuantity, onRemoveItem, onNavigate
 
             <Button
               variant="outline"
-              onClick={() => onNavigate('home')}
+              onClick={() => window.location.href = '/'}
               className="w-full border-[#003366] text-[#003366] hover:bg-blue-50"
             >
               Continue Shopping
-            </Button>
-
-            <div className="mt-6 pt-6 border-t border-gray-200">
+            </Button>            <div className="mt-6 pt-6 border-t border-gray-200">
               <div className="flex items-start gap-2 text-sm text-gray-600">
                 <div className="text-green-600 mt-1">✓</div>
                 <div>
