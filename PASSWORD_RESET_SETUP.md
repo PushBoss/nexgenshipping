@@ -51,8 +51,8 @@ cd /Users/aarongardiner/Desktop/nexgenshipping-main
 supabase functions deploy auth-reset-password
 
 # Set environment variables (if not already set)
-supabase secrets set SUPABASE_URL=https://erxkwytqautexizleeov.supabase.co
-supabase secrets set SUPABASE_ANON_KEY=your_anon_key_here
+supabase secrets set VITE_SUPABASE_URL=https://erxkwytqautexizleeov.supabase.co
+supabase secrets set VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVyeGt3eXRxYXV0ZXhpemxlZW92Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ1NDc4NTAsImV4cCI6MjA4MDEyMzg1MH0.IeKfNvkLNVxvtX-dl8U9xqlv3LIzX6AHLpqiZRcvjVs
 ```
 
 **Note**: The Edge Function automatically uses `SUPABASE_URL` and `SUPABASE_ANON_KEY` from Supabase's built-in environment variables, so you may not need to set them manually.

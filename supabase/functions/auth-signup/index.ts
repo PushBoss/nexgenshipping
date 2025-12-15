@@ -127,6 +127,7 @@ serve(async (req) => {
       .from('user_profiles')
       .insert({
         id: authData.user.id,
+        email: email, // Store email in user_profiles for easier querying
         first_name: firstName || '',
         last_name: lastName || '',
         is_admin: false,

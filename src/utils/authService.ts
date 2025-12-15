@@ -368,6 +368,7 @@ export const authService = {
         .from('user_profiles')
         .insert({
           id: userId,
+          email: _email, // Store email in user_profiles for easier querying
           first_name: metadata?.firstName || '',
           last_name: metadata?.lastName || '',
           is_admin: false,
