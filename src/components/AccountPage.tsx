@@ -188,13 +188,15 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
       }
 
       // Check if default address exists
-      const { data: existing } = await supabase
+      const { data: existingAddresses, error: checkError } = await supabase
         .from('user_addresses')
         .select('id')
         .eq('user_id', user.id)
         .eq('is_default', true)
         .eq('address_type', 'shipping')
-        .single();
+        .limit(1);
+
+      const existing = existingAddresses && existingAddresses.length > 0 ? existingAddresses[0] : null;
 
       if (existing) {
         // Update existing address
