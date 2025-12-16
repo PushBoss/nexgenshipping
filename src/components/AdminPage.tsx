@@ -11,13 +11,14 @@ import { Badge } from './ui/badge';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
-import { Plus, Edit, Trash2, Package, Tag, TrendingUp, Percent, Search, Filter, Upload, Download, FileUp, CheckCircle2, AlertCircle, XCircle, Link2, Image, Users, CreditCard, Settings } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, Tag, TrendingUp, Percent, Search, Filter, Upload, Download, FileUp, CheckCircle2, AlertCircle, XCircle, Link2, Image, Users, CreditCard, Settings, RefreshCw } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from './ui/dialog';
 import { Alert, AlertDescription } from './ui/alert';
 import { SupabaseStatus } from './SupabaseStatus';
 import { DataManagementPanel } from './DataManagementPanel';
 import { UserManagementPanel } from './UserManagementPanel';
 import { supabase } from '../utils/supabaseClient';
+import { supabaseAdmin } from '../utils/supabaseAdmin';
 import { paymentGatewayService, PaymentGatewaySettings } from '../utils/paymentGatewayService';
 import { Switch } from './ui/switch';
 import { publicAnonKey } from '../utils/supabase/info';
@@ -77,6 +78,9 @@ export function AdminPage({
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
   const [bulkDeleteAction, setBulkDeleteAction] = useState<'baby' | 'pharmaceutical' | 'purge' | null>(null);
 
+  // Image migration state
+  const [isMigratingImages, setIsMigratingImages] = useState(false);
+
   // Image upload state
   const [imageInputType, setImageInputType] = useState<'url' | 'file'>('url');
   const [editImageInputType, setEditImageInputType] = useState<'url' | 'file'>('url');
@@ -125,20 +129,25 @@ export function AdminPage({
       if (imageUrl.startsWith('data:image/')) {
         const res = await fetch(imageUrl);
         const blob = await res.blob();
-        const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
+        // Use admin client to bypass RLS policies
+        const { error } = await supabaseAdmin.storage.from('product-images').upload(fileName, blob, { upsert: true });
         if (error) throw error;
-        const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
+        const { data } = supabaseAdmin.storage.from('product-images').getPublicUrl(fileName);
         return data.publicUrl || imageUrl;
       }
 
       // HTTP URL - Use Edge Function to bypass CORS (especially for Dropbox)
       if (imageUrl.startsWith('http')) {
+        const isDropboxUrl = imageUrl.includes('dropbox.com');
+        
         try {
           // Try using Edge Function first to bypass CORS
           const supabaseUrl = `https://erxkwytqautexizleeov.supabase.co`;
           const edgeFunctionUrl = `${supabaseUrl}/functions/v1/download-image`;
           
           try {
+            console.log(`📥 Attempting to download image via Edge Function for ${productName}: ${imageUrl.substring(0, 80)}...`);
+            
             const edgeResponse = await fetch(edgeFunctionUrl, {
               method: 'POST',
               headers: {
@@ -152,38 +161,83 @@ export function AdminPage({
             if (edgeResponse.ok) {
               const edgeResult = await edgeResponse.json();
               if (edgeResult.success && edgeResult.data) {
-                // Convert base64 to blob
-                const binaryString = atob(edgeResult.data);
-                const bytes = new Uint8Array(binaryString.length);
-                for (let i = 0; i < binaryString.length; i++) {
-                  bytes[i] = binaryString.charCodeAt(i);
+                try {
+                  // Validate base64 string
+                  const base64Data = edgeResult.data.trim();
+                  if (!base64Data || typeof base64Data !== 'string') {
+                    throw new Error('Invalid base64 data received from Edge Function');
+                  }
+                  
+                  // Validate base64 format (basic check)
+                  if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64Data)) {
+                    throw new Error('Invalid base64 format received from Edge Function');
+                  }
+                  
+                  // Convert base64 to blob
+                  const binaryString = atob(base64Data);
+                  const bytes = new Uint8Array(binaryString.length);
+                  for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                  }
+                  const blob = new Blob([bytes], { type: edgeResult.contentType || 'image/jpeg' });
+                  
+                  console.log(`📤 Uploading blob to storage for ${productName} (size: ${blob.size} bytes, type: ${blob.type})`);
+                  
+                  // Upload to Supabase Storage using admin client to bypass RLS
+                  const { error, data: uploadData } = await supabaseAdmin.storage.from('product-images').upload(fileName, blob, { upsert: true });
+                  if (error) {
+                    console.error(`❌ Storage upload error for ${productName}:`, error);
+                    throw error;
+                  }
+                  
+                  const { data: urlData } = supabaseAdmin.storage.from('product-images').getPublicUrl(fileName);
+                  const publicUrl = urlData.publicUrl || imageUrl;
+                  console.log(`✅ Successfully uploaded image via Edge Function for ${productName}: ${publicUrl}`);
+                  return publicUrl;
+                } catch (decodeError: any) {
+                  console.error(`❌ Failed to process image for ${productName}:`, decodeError.message || decodeError);
+                  throw decodeError; // Re-throw to be caught by outer catch
                 }
-                const blob = new Blob([bytes], { type: edgeResult.contentType || 'image/jpeg' });
-                
-                // Upload to Supabase Storage
-                const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
-                if (error) throw error;
-                const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
-                console.log(`✅ Successfully uploaded image via Edge Function for ${productName}`);
-                return data.publicUrl || imageUrl;
+              } else {
+                const errorMsg = edgeResult.error || 'Unknown error';
+                console.error(`❌ Edge Function returned success=false for ${productName}:`, errorMsg);
+                throw new Error(`Edge Function error: ${errorMsg}`);
               }
+            } else {
+              // Log the actual error response
+              const errorText = await edgeResponse.text();
+              console.error(`❌ Edge Function failed with status ${edgeResponse.status} for ${productName}:`, errorText);
+              throw new Error(`Edge Function HTTP ${edgeResponse.status}: ${errorText.substring(0, 200)}`);
             }
-            // If Edge Function fails, log and fall through to direct fetch
-            console.warn('Edge Function download failed, trying direct fetch:', edgeResponse.status);
-          } catch (edgeError) {
-            console.warn('Edge Function download error, trying direct fetch:', edgeError);
+          } catch (edgeError: any) {
+            console.error(`❌ Edge Function exception for ${productName}:`, edgeError.message || edgeError);
+            // For Dropbox URLs, don't try direct fetch (will always fail with CORS)
+            if (isDropboxUrl) {
+              console.warn(`⚠️ Edge Function failed for Dropbox URL, cannot use direct fetch (CORS). Returning original URL for ${productName}`);
+              throw new Error(`Failed to upload Dropbox image: ${edgeError.message || 'Edge Function failed'}`);
+            }
+            // Re-throw for non-Dropbox URLs so fallback can be attempted
+            throw edgeError;
           }
 
-          // Fallback to direct fetch (may fail with CORS for Dropbox)
+          // Fallback to direct fetch for non-Dropbox URLs only
+          try {
+            console.log(`🔄 Attempting direct fetch fallback for ${productName}...`);
           const res = await fetch(imageUrl);
-          if (!res.ok) throw new Error('Failed to fetch image');
+            if (!res.ok) throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
           const blob = await res.blob();
-          const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
+            // Use admin client to bypass RLS policies
+            const { error } = await supabaseAdmin.storage.from('product-images').upload(fileName, blob, { upsert: true });
           if (error) throw error;
-          const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
+            const { data } = supabaseAdmin.storage.from('product-images').getPublicUrl(fileName);
+            console.log(`✅ Successfully uploaded image via direct fetch for ${productName}`);
           return data.publicUrl || imageUrl;
-        } catch (err) {
-          console.warn(`Failed to upload image for ${productName}:`, err);
+          } catch (directFetchError: any) {
+            console.warn(`⚠️ Direct fetch also failed for ${productName}:`, directFetchError.message || directFetchError);
+            return imageUrl; // Return original URL if both methods fail
+          }
+        } catch (err: any) {
+          console.error(`❌ Failed to upload image for ${productName}:`, err.message || err);
           return imageUrl;
         }
       }
@@ -684,6 +738,7 @@ export function AdminPage({
     setIsProcessingCsv(true);
     let successCount = 0;
     let imageUploadCount = 0;
+    let imageUploadFailed = 0;
     let skippedCount = 0;
 
     try {
@@ -734,10 +789,16 @@ export function AdminPage({
               const uploadedImageUrl = await uploadImageToStorage(product.image, product.name, index);
               if (uploadedImageUrl !== product.image) {
                 imageUploadCount++;
+                console.log(`✅ Image uploaded successfully for ${product.name}`);
                 return { ...product, image: uploadedImageUrl };
+              } else {
+                // Upload returned original URL (likely failed)
+                imageUploadFailed++;
+                console.warn(`⚠️ Image upload returned original URL for ${product.name} - upload may have failed`);
               }
-            } catch (err) {
-              console.warn(`⚠️ Failed to upload image for ${product.name}:`, err);
+            } catch (err: any) {
+              imageUploadFailed++;
+              console.error(`❌ Failed to upload image for ${product.name}:`, err?.message || err);
               // Continue with original image URL if upload fails
             }
           }
@@ -778,6 +839,10 @@ export function AdminPage({
       if (imageUploadCount > 0) {
         message += ` (${imageUploadCount} images uploaded to storage)`;
       }
+      if (imageUploadFailed > 0) {
+        message += ` ⚠️ ${imageUploadFailed} images failed to upload (using original URLs)`;
+        console.warn(`⚠️ ${imageUploadFailed} images failed to upload during bulk import`);
+      }
       if (skippedCount > 0) {
         message += ` (${skippedCount} duplicates skipped)`;
       }
@@ -801,6 +866,84 @@ export function AdminPage({
     const fileInput = document.getElementById('csv-file-input') as HTMLInputElement;
     if (fileInput) {
       fileInput.value = '';
+    }
+  };
+
+  // Migrate existing product images from Dropbox URLs to Supabase Storage
+  const handleMigrateImages = async () => {
+    // Find products with Dropbox URLs
+    const productsWithDropboxUrls = products.filter(p => 
+      p.image && 
+      p.image.includes('dropbox.com') && 
+      !p.image.includes('supabase.co')
+    );
+
+    if (productsWithDropboxUrls.length === 0) {
+      toast.info('No products with Dropbox URLs found. All images are already migrated.');
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Migrate ${productsWithDropboxUrls.length} product images from Dropbox to Supabase Storage?\n\n` +
+      `This will download each image and upload it to Supabase Storage, then update the product records.\n\n` +
+      `Continue?`
+    );
+
+    if (!confirmed) return;
+
+    setIsMigratingImages(true);
+    let migratedCount = 0;
+    let failedCount = 0;
+
+    try {
+      toast.info(`Starting migration of ${productsWithDropboxUrls.length} images...`);
+
+      // Process images in batches of 10
+      const BATCH_SIZE = 10;
+      for (let i = 0; i < productsWithDropboxUrls.length; i += BATCH_SIZE) {
+        const batch = productsWithDropboxUrls.slice(i, i + BATCH_SIZE);
+        const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
+        const totalBatches = Math.ceil(productsWithDropboxUrls.length / BATCH_SIZE);
+        
+        toast.info(`Migrating images: batch ${batchNumber}/${totalBatches}...`);
+
+        const migrationPromises = batch.map(async (product) => {
+          try {
+            const newImageUrl = await uploadImageToStorage(product.image, product.name);
+            if (newImageUrl !== product.image && newImageUrl.includes('supabase.co')) {
+              // Update product with new image URL
+              await onUpdateProduct(product.id, { image: newImageUrl });
+              migratedCount++;
+              console.log(`✅ Migrated image for ${product.name}`);
+              return { success: true, product };
+            } else {
+              failedCount++;
+              console.warn(`⚠️ Failed to migrate image for ${product.name} - returned original URL`);
+              return { success: false, product };
+            }
+          } catch (error: any) {
+            failedCount++;
+            console.error(`❌ Error migrating image for ${product.name}:`, error.message || error);
+            return { success: false, product, error };
+          }
+        });
+
+        await Promise.allSettled(migrationPromises);
+      }
+
+      let message = `Image migration complete! Migrated ${migratedCount} images`;
+      if (failedCount > 0) {
+        message += ` (${failedCount} failed)`;
+      }
+      toast.success(message);
+      
+      // Refresh products to show updated URLs
+      window.location.reload();
+    } catch (error) {
+      console.error('Image migration error:', error);
+      toast.error(`Image migration failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    } finally {
+      setIsMigratingImages(false);
     }
   };
 
@@ -845,16 +988,16 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
       // Use productsService bulk delete for efficiency
       const { productsService } = await import('../utils/productsService');
       const deletedCount = await productsService.bulkDelete(bulkDeleteAction);
-      
-      const message = bulkDeleteAction === 'purge'
+
+    const message = bulkDeleteAction === 'purge'
         ? `All ${deletedCount} products deleted`
         : `${deletedCount} ${bulkDeleteAction} product(s) deleted`;
-      
-      toast.success(message);
-      
+    
+    toast.success(message);
+    
       // Reload products by calling parent's refresh (if available) or reload page
       // The parent component (App.tsx) will reload products automatically
-      window.location.reload();
+    window.location.reload();
     } catch (error) {
       console.error('Bulk delete error:', error);
       toast.error(`Failed to delete products: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -891,6 +1034,39 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
         {/* Data Management Panel */}
         <div className="mb-6">
           <DataManagementPanel products={products} />
+          
+          {/* Image Migration Button */}
+          {products.some(p => p.image && p.image.includes('dropbox.com') && !p.image.includes('supabase.co')) && (
+            <Card className="mt-4">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="font-semibold text-lg">Image Migration</h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      {products.filter(p => p.image && p.image.includes('dropbox.com') && !p.image.includes('supabase.co')).length} products have Dropbox URLs that need to be migrated to Supabase Storage
+                    </p>
+                  </div>
+                  <Button
+                    onClick={handleMigrateImages}
+                    disabled={isMigratingImages}
+                    className="bg-[#003366] hover:bg-[#004488]"
+                  >
+                    {isMigratingImages ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Migrating Images...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Migrate Images to Storage
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <Tabs defaultValue="products" className="space-y-6">

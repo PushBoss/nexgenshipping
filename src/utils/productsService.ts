@@ -238,6 +238,55 @@ export const productsService = {
   },
 
   /**
+   * Ensure category exists, create if missing
+   */
+  async ensureCategory(categoryId: string, category: 'baby' | 'pharmaceutical'): Promise<void> {
+    if (!categoryId) return;
+    
+    try {
+      // Check if category exists
+      const { data: existing } = await supabaseAdmin
+        .from('categories')
+        .select('id')
+        .eq('id', categoryId)
+        .single();
+      
+      if (existing) {
+        return; // Category already exists
+      }
+      
+      // Create missing category
+      const categoryName = categoryId
+        .split('-')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+      
+      const parentId = category === 'baby' ? 'baby' : 'pharmaceutical';
+      
+      const { error } = await supabaseAdmin
+        .from('categories')
+        .insert({
+          id: categoryId,
+          name: categoryName,
+          slug: categoryId,
+          description: `${categoryName} products`,
+          parent_id: parentId,
+          display_order: 0,
+          is_active: true,
+        });
+      
+      if (error && error.code !== '23505') { // Ignore duplicate key errors
+        console.warn(`⚠️ Failed to create category ${categoryId}:`, error.message);
+      } else if (!error) {
+        console.log(`✅ Created missing category: ${categoryId}`);
+      }
+    } catch (err) {
+      console.warn(`⚠️ Error ensuring category ${categoryId}:`, err);
+      // Don't throw - continue with import even if category creation fails
+    }
+  },
+
+  /**
    * Bulk import products
    * Batches inserts to handle large volumes (e.g., 200+ products)
    */
@@ -247,6 +296,24 @@ export const productsService = {
     }
 
     try {
+      // First, ensure all categories exist
+      const categoryIds = new Set<string>();
+      products.forEach(p => {
+        if (p.categoryId) {
+          categoryIds.add(p.categoryId);
+        }
+      });
+      
+      // Create missing categories in parallel
+      await Promise.allSettled(
+        Array.from(categoryIds).map(categoryId => {
+          // Determine parent category from first product using this categoryId
+          const product = products.find(p => p.categoryId === categoryId);
+          const parentCategory = product?.category || 'pharmaceutical';
+          return productsService.ensureCategory(categoryId, parentCategory as 'baby' | 'pharmaceutical');
+        })
+      );
+      
       const productsData = products.map(this.mapToSupabase);
       const BATCH_SIZE = 50; // Supabase can handle more, but batching prevents timeout issues
       let totalImported = 0;

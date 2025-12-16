@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Header } from './components/Header';
 import { ProductCard, Product } from './components/ProductCard';
@@ -313,18 +313,23 @@ function AppContent() {
     navigate('/checkout');
   };
 
-  // Filter products based on search and category
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = !searchQuery ||
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.category.toLowerCase().includes(searchQuery.toLowerCase());
+  // Filter products based on search and category (memoized for performance)
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+      const matchesSearch = !searchQuery ||
+        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        product.category.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesCategory = selectedCategory === 'all' ||
-      (selectedCategory === 'baby' && product.categoryId?.startsWith('baby-')) ||
-      (selectedCategory === 'pharmaceutical' && product.categoryId?.startsWith('cold-'));
+      const matchesCategory = selectedCategory === 'all' ||
+        product.category === selectedCategory;
 
-    return matchesSearch && matchesCategory;
-  });
+      const matchesCategoryId = !selectedCategoryId || product.categoryId === selectedCategoryId;
+      const matchesSubcategoryId = !selectedSubcategoryId || product.subcategoryId === selectedSubcategoryId;
+
+      return matchesSearch && matchesCategory && matchesCategoryId && matchesSubcategoryId;
+    });
+  }, [products, searchQuery, selectedCategory, selectedCategoryId, selectedSubcategoryId]);
 
   // Calculate cart total
   const cartTotal = cartItems.reduce((total, item) => {
@@ -359,7 +364,7 @@ function AppContent() {
 
       <Routes>
         <Route path="/" element={
-          <>
+          <div className="max-w-[1500px] mx-auto px-4 py-6">
             <CategoryBreadcrumb
               selectedCategory={selectedCategory}
               selectedCategoryId={selectedCategoryId}
@@ -372,20 +377,75 @@ function AppContent() {
               }}
             />
 
-            <FeaturedSection
-              products={filteredProducts}
-              isLoggedIn={isLoggedIn}
-              onAddToCart={(productId) => {
-                const product = products.find(p => p.id === productId);
-                if (product) handleAddToCart(product);
-              }}
-              onLoginPrompt={handleLoginPrompt}
-              onProductClick={(productId) => {
-                const product = products.find(p => p.id === productId);
-                if (product) handleProductClick(product);
-              }}
-            />
-          </>
+            {/* Show featured sections only if no filters are active */}
+            {selectedCategory === 'all' && !selectedCategoryId && !selectedSubcategoryId && !searchQuery && (
+              <FeaturedSection
+                products={products}
+                isLoggedIn={isLoggedIn}
+                onAddToCart={(productId) => {
+                  const product = products.find(p => p.id === productId);
+                  if (product) handleAddToCart(product);
+                }}
+                onLoginPrompt={handleLoginPrompt}
+                onProductClick={(productId) => {
+                  const product = products.find(p => p.id === productId);
+                  if (product) handleProductClick(product);
+                }}
+              />
+            )}
+
+            {/* All Products Section */}
+            <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="text-[#003366] text-xl font-semibold">
+                    {searchQuery ? `Search Results for "${searchQuery}"` : 
+                     selectedCategoryId || selectedSubcategoryId ? 'Filtered Products' :
+                     selectedCategory === 'all' ? 'All Products' :
+                     selectedCategory === 'baby' ? 'Baby Products' :
+                     'Pharmaceutical Products'}
+                  </h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} found
+                  </p>
+                </div>
+              </div>
+
+              {filteredProducts.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-500 text-lg">No products found</p>
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="mt-4 text-[#0055AA] hover:underline"
+                    >
+                      Clear search
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {filteredProducts.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      isLoggedIn={isLoggedIn}
+                      onAddToCart={(productId) => {
+                        const product = products.find(p => p.id === productId);
+                        if (product) handleAddToCart(product);
+                      }}
+                      onLoginPrompt={handleLoginPrompt}
+                      onProductClick={(productId) => {
+                        const product = products.find(p => p.id === productId);
+                        if (product) handleProductClick(product);
+                      }}
+                      selectedCurrency={selectedCurrency}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         } />
 
         <Route path="/about" element={<AboutPage />} />

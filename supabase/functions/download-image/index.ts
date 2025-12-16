@@ -4,16 +4,22 @@
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { encodeBase64 } from 'https://deno.land/std@0.168.0/encoding/base64.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
 };
 
 serve(async (req) => {
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+    return new Response('ok', { 
+      status: 200,
+      headers: corsHeaders 
+    });
   }
 
   try {
@@ -73,9 +79,10 @@ serve(async (req) => {
     // Get the image as a blob
     const imageBlob = await response.blob();
     const arrayBuffer = await imageBlob.arrayBuffer();
-    const base64 = btoa(
-      String.fromCharCode(...new Uint8Array(arrayBuffer))
-    );
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
+    // Use Deno's built-in base64 encoder which handles large data efficiently
+    const base64 = encodeBase64(uint8Array);
 
     // Determine content type
     const contentType = response.headers.get('content-type') || imageBlob.type || 'image/jpeg';
