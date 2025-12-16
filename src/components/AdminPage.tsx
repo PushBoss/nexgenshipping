@@ -20,6 +20,7 @@ import { UserManagementPanel } from './UserManagementPanel';
 import { supabase } from '../utils/supabaseClient';
 import { paymentGatewayService, PaymentGatewaySettings } from '../utils/paymentGatewayService';
 import { Switch } from './ui/switch';
+import { publicAnonKey } from '../utils/supabase/info';
 
 interface AdminPageProps {
   products: Product[];
@@ -130,9 +131,50 @@ export function AdminPage({
         return data.publicUrl || imageUrl;
       }
 
-      // HTTP URL
+      // HTTP URL - Use Edge Function to bypass CORS (especially for Dropbox)
       if (imageUrl.startsWith('http')) {
         try {
+          // Try using Edge Function first to bypass CORS
+          const supabaseUrl = `https://erxkwytqautexizleeov.supabase.co`;
+          const edgeFunctionUrl = `${supabaseUrl}/functions/v1/download-image`;
+          
+          try {
+            const edgeResponse = await fetch(edgeFunctionUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'apikey': publicAnonKey,
+                'Authorization': `Bearer ${publicAnonKey}`,
+              },
+              body: JSON.stringify({ imageUrl }),
+            });
+
+            if (edgeResponse.ok) {
+              const edgeResult = await edgeResponse.json();
+              if (edgeResult.success && edgeResult.data) {
+                // Convert base64 to blob
+                const binaryString = atob(edgeResult.data);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                  bytes[i] = binaryString.charCodeAt(i);
+                }
+                const blob = new Blob([bytes], { type: edgeResult.contentType || 'image/jpeg' });
+                
+                // Upload to Supabase Storage
+                const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
+                if (error) throw error;
+                const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
+                console.log(`✅ Successfully uploaded image via Edge Function for ${productName}`);
+                return data.publicUrl || imageUrl;
+              }
+            }
+            // If Edge Function fails, log and fall through to direct fetch
+            console.warn('Edge Function download failed, trying direct fetch:', edgeResponse.status);
+          } catch (edgeError) {
+            console.warn('Edge Function download error, trying direct fetch:', edgeError);
+          }
+
+          // Fallback to direct fetch (may fail with CORS for Dropbox)
           const res = await fetch(imageUrl);
           if (!res.ok) throw new Error('Failed to fetch image');
           const blob = await res.blob();

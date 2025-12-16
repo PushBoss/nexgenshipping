@@ -141,11 +141,11 @@ export async function updateExchangeRates(): Promise<void> {
         
         lastFetchTime = now;
         if (config.debugMode || window.location.search.includes('debug=true')) {
-          console.log('✅ Exchange rates updated from API:', {
-            JMD: EXCHANGE_RATES.JMD,
+        console.log('✅ Exchange rates updated from API:', {
+          JMD: EXCHANGE_RATES.JMD,
             CAD: EXCHANGE_RATES.CAD,
             source: 'exchangerate-api.com'
-          });
+        });
         }
         return;
       } else {
