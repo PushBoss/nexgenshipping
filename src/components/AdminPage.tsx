@@ -2317,7 +2317,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                           <AlertCircle className="h-5 w-5" />
                           Confirm Bulk Delete
                         </DialogTitle>
-                        <DialogDescription>
+                        <div className="text-sm text-gray-600 space-y-2">
                           {bulkDeleteAction === 'purge' && (
                             <div className="space-y-2 mt-4">
                               <p className="font-medium text-red-900">
@@ -2355,7 +2355,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                           <p className="text-sm text-red-600 mt-4 font-medium">
                             ⚠️ This action cannot be undone!
                           </p>
-                        </DialogDescription>
+                        </div>
                       </DialogHeader>
                       <DialogFooter className="gap-2">
                         <Button

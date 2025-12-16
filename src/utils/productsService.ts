@@ -211,7 +211,11 @@ export const productsService = {
         .from('products')
         .delete();
       
-      if (action !== 'purge') {
+      if (action === 'purge') {
+        // For purge, we need a WHERE clause that matches all rows
+        // Using .neq('id', '') which matches all UUIDs (they're never empty strings)
+        deleteQuery = deleteQuery.neq('id', '');
+      } else {
         deleteQuery = deleteQuery.eq('category', action);
       }
       
