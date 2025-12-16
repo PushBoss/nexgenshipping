@@ -97,15 +97,19 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
       }
 
       // Load default shipping address
-      const { data: address } = await supabase
+      const { data: addresses, error: addressError } = await supabase
         .from('user_addresses')
         .select('*')
         .eq('user_id', user.id)
         .eq('is_default', true)
         .eq('address_type', 'shipping')
-        .single();
+        .limit(1);
 
-      if (address) {
+      // Handle address error gracefully (406 might mean no address exists or RLS issue)
+      if (addressError) {
+        console.warn('⚠️ Could not load address (this is OK if no address exists):', addressError);
+      } else if (addresses && addresses.length > 0) {
+        const address = addresses[0];
         setShippingAddress({
           street: address.street || '',
           city: address.city || '',
