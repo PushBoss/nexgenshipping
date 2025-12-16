@@ -314,6 +314,14 @@ export const authService = {
 
       return null;
     } catch (error: any) {
+      // Handle network errors gracefully
+      if (error.message?.includes('Failed to fetch') || 
+          error.message?.includes('ERR_NAME_NOT_RESOLVED') ||
+          error.name === 'AuthRetryableFetchError') {
+        console.warn('⚠️ Network error: Cannot reach Supabase. Check your internet connection.');
+        return null; // Return null instead of throwing
+      }
+      
       // Only log errors that aren't "session missing" (which is normal when not logged in)
       if (error.message !== 'Auth session missing!') {
         console.error('Get user error:', error);

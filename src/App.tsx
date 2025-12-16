@@ -134,9 +134,15 @@ function AppContent() {
       try {
         const loadedProducts = await productsService.getAll();
         setProducts(loadedProducts);
-        setProductsLoaded(true);
-      } catch (error) {
+          setProductsLoaded(true);
+      } catch (error: any) {
         console.error('Failed to load products:', error);
+        // If it's a network error, show empty state but don't show error toast
+        if (error.message?.includes('Failed to fetch') || 
+            error.message?.includes('ERR_NAME_NOT_RESOLVED')) {
+          console.warn('⚠️ Network error: Cannot reach Supabase. App will work in offline mode.');
+          setProducts([]); // Set empty products array
+        }
         setProductsLoaded(true); // Still set to true to show empty state
       }
     };
@@ -159,7 +165,7 @@ function AppContent() {
             const wishlistData = await wishlistService.getAll(user.id);
             setWishlistItems(wishlistData);
           }
-        } catch (error) {
+    } catch (error) {
           console.error('Failed to load user data:', error);
         }
       };
@@ -233,7 +239,7 @@ function AppContent() {
       // Reload cart to get updated data
       const user = await authService.getCurrentUser();
       if (user) {
-        const cartData = await cartService.getAll(user.id);
+          const cartData = await cartService.getAll(user.id);
         setCartItems(cartData);
       }
       toast.success('Item removed from cart');
@@ -250,7 +256,7 @@ function AppContent() {
       // Reload cart to get updated data
       const user = await authService.getCurrentUser();
       if (user) {
-        const cartData = await cartService.getAll(user.id);
+          const cartData = await cartService.getAll(user.id);
         setCartItems(cartData);
       }
     } catch (error) {
@@ -429,79 +435,79 @@ function AppContent() {
         } />
 
         <Route path="/orders" element={
-          isLoggedIn ? (
+        isLoggedIn ? (
             <OrdersPage onProductClick={(productId) => {
               const product = products.find(p => p.id === productId);
               if (product) handleProductClick(product);
             }} />
-          ) : (
-            <div className="max-w-[1200px] mx-auto px-4 py-8">
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                <h2 className="text-[#003366] mb-2">Sign in to view your orders</h2>
-                <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
-                <button
-                  onClick={handleLoginPrompt}
-                  className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
-                >
-                  Sign In
-                </button>
-              </div>
+        ) : (
+          <div className="max-w-[1200px] mx-auto px-4 py-8">
+            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+              <h2 className="text-[#003366] mb-2">Sign in to view your orders</h2>
+              <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
+              <button
+                onClick={handleLoginPrompt}
+                className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
+              >
+                Sign In
+              </button>
             </div>
-          )
+          </div>
+        )
         } />
 
         <Route path="/wishlist" element={
-          isLoggedIn ? (
-            <WishlistPage
-              wishlistItems={wishlistItems}
-              onRemoveFromWishlist={handleRemoveFromWishlist}
-              onAddToCart={handleAddToCart}
-              onProductClick={handleProductClick}
-            />
-          ) : (
-            <div className="max-w-[1200px] mx-auto px-4 py-8">
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                <h2 className="text-[#003366] mb-2">Sign in to view your wishlist</h2>
-                <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
-                <button
-                  onClick={handleLoginPrompt}
-                  className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
-                >
-                  Sign In
-                </button>
-              </div>
+        isLoggedIn ? (
+          <WishlistPage
+            wishlistItems={wishlistItems}
+            onRemoveFromWishlist={handleRemoveFromWishlist}
+            onAddToCart={handleAddToCart}
+            onProductClick={handleProductClick}
+          />
+        ) : (
+          <div className="max-w-[1200px] mx-auto px-4 py-8">
+            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+              <h2 className="text-[#003366] mb-2">Sign in to view your wishlist</h2>
+              <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
+              <button
+                onClick={handleLoginPrompt}
+                className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
+              >
+                Sign In
+              </button>
             </div>
-          )
+          </div>
+        )
         } />
 
         <Route path="/account" element={
-          isLoggedIn ? (
-            <AccountPage
+        isLoggedIn ? (
+          <AccountPage
               onNavigateToOrders={() => navigate('/orders')}
               onNavigateToWishlist={() => navigate('/wishlist')}
-              isAdmin={isAdmin}
+            isAdmin={isAdmin}
               onNavigateToAdmin={() => navigate('/admin')}
-            />
-          ) : (
-            <div className="max-w-[1200px] mx-auto px-4 py-8">
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                <h2 className="text-[#003366] mb-2">Sign in to view your account</h2>
-                <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
-                <button
-                  onClick={handleLoginPrompt}
-                  className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
-                >
-                  Sign In
-                </button>
-              </div>
+          />
+        ) : (
+          <div className="max-w-[1200px] mx-auto px-4 py-8">
+            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+              <h2 className="text-[#003366] mb-2">Sign in to view your account</h2>
+              <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
+              <button
+                onClick={handleLoginPrompt}
+                className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
+              >
+                Sign In
+              </button>
             </div>
-          )
+          </div>
+        )
         } />
 
         <Route path="/admin" element={
           isLoggedIn && isAdmin ? (
-            <AdminPage
-              products={products}
+          <AdminPage
+            products={products}
               onAddProduct={async (product) => {
                 try {
                   await productsService.create(product);
@@ -576,21 +582,21 @@ function AppContent() {
                   throw error;
                 }
               }}
-            />
-          ) : (
-            <div className="max-w-[1200px] mx-auto px-4 py-8">
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-                <h2 className="text-[#003366] mb-2">Access Denied</h2>
+          />
+        ) : (
+          <div className="max-w-[1200px] mx-auto px-4 py-8">
+            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+              <h2 className="text-[#003366] mb-2">Access Denied</h2>
                 <p className="text-gray-600 mb-6">You must be an admin to access this page</p>
-                <button
+              <button
                   onClick={() => navigate('/')}
                   className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
-                >
+              >
                   Go Home
-                </button>
-              </div>
+              </button>
             </div>
-          )
+          </div>
+        )
         } />
 
         <Route path="/reset-password" element={<ResetPasswordPage />} />
@@ -620,7 +626,7 @@ function AppContent() {
           />
         </DialogContent>
       </Dialog>
-
+      
       <Toaster />
     </>
   );
