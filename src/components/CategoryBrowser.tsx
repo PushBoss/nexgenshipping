@@ -40,9 +40,8 @@ export const PRODUCT_CATEGORIES: ProductCategory[] = [
     name: 'Baby Products',
     id: 'baby',
     categories: [
-      { name: 'Apparel & Accessories', id: 'apparel-accessories' },
-      { name: 'Baby Feeding', id: 'baby-feeding' },
-      { name: 'Toys & Entertainment', id: 'baby-toys-entertainment' },
+      { name: 'Apparel', id: 'apparel' },
+      { name: 'Accessories', id: 'accessories' },
     ],
   },
 ];

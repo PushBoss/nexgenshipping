@@ -66,7 +66,7 @@ export function Header({
       {/* Top header */}
       <div className="bg-[#EAEDED] border-b border-gray-300">
         <div className="max-w-[1500px] mx-auto px-2 sm:px-4">
-          <div className="flex items-center gap-1.5 sm:gap-3 md:gap-6 py-2 sm:py-3">
+          <div className="flex items-center justify-between gap-1.5 sm:gap-3 md:gap-6 py-2 sm:py-3">
             {/* Logo */}
             <div 
               onClick={() => onNavigate('home')}
@@ -80,7 +80,7 @@ export function Header({
             </div>
 
             {/* Search bar */}
-            <div className="flex-1 min-w-0 max-w-3xl">
+            <div className="flex-1 min-w-0 max-w-3xl mx-auto">
               <div className="flex items-center">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -157,6 +157,22 @@ export function Header({
                 </DropdownMenuContent>
               </DropdownMenu>
 
+              {/* Cart */}
+              <button 
+                onClick={() => onNavigate('cart')}
+                className="flex items-center gap-1 md:gap-2 hover:bg-gray-200 rounded p-1.5 sm:px-2 sm:py-1 transition-all relative text-[#003366]"
+              >
+                <div className="relative">
+                  <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
+                  {cartCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 bg-[#DC143C] text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs font-bold">
+                      {cartCount}
+                    </span>
+                  )}
+                </div>
+                <span className="hidden md:inline text-sm">Cart</span>
+              </button>
+
               {/* Account */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -212,22 +228,6 @@ export function Header({
                   )}
                 </DropdownMenuContent>
               </DropdownMenu>
-
-              {/* Cart */}
-              <button 
-                onClick={() => onNavigate('cart')}
-                className="flex items-center gap-1 md:gap-2 hover:bg-gray-200 rounded p-1.5 sm:px-2 sm:py-1 transition-all relative text-[#003366]"
-              >
-                <div className="relative">
-                  <ShoppingCart className="h-4 w-4 sm:h-5 sm:w-5 md:h-6 md:w-6" />
-                  {cartCount > 0 && (
-                    <span className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 bg-[#DC143C] text-white rounded-full w-4 h-4 sm:w-5 sm:h-5 flex items-center justify-center text-[10px] sm:text-xs font-bold">
-                      {cartCount}
-                    </span>
-                  )}
-                </div>
-                <span className="hidden md:inline text-sm">Cart</span>
-              </button>
             </div>
           </div>
         </div>
@@ -247,7 +247,7 @@ export function Header({
             <button
               onClick={() => onCategoryChange('all')}
               className={`hover:bg-[#004080] rounded px-2 py-1 transition-all whitespace-nowrap ${
-                selectedCategory === 'all' && currentPage === 'home' ? 'bg-[#004080]' : ''
+                selectedCategory === 'all' && currentPage === '/' ? 'bg-[#004080]' : ''
               }`}
             >
               All Products
@@ -255,7 +255,7 @@ export function Header({
             <button
               onClick={() => onCategoryChange('baby')}
               className={`hover:bg-[#004080] rounded px-2 py-1 transition-all whitespace-nowrap ${
-                selectedCategory === 'baby' && currentPage === 'home' ? 'bg-[#004080]' : ''
+                selectedCategory === 'baby' && currentPage === '/' ? 'bg-[#004080]' : ''
               }`}
             >
               Baby Products
@@ -263,7 +263,7 @@ export function Header({
             <button
               onClick={() => onCategoryChange('pharmaceutical')}
               className={`hover:bg-[#004080] rounded px-2 py-1 transition-all whitespace-nowrap ${
-                selectedCategory === 'pharmaceutical' && currentPage === 'home' ? 'bg-[#004080]' : ''
+                selectedCategory === 'pharmaceutical' && currentPage === '/' ? 'bg-[#004080]' : ''
               }`}
             >
               Pharmaceuticals
@@ -271,7 +271,7 @@ export function Header({
             <button 
               onClick={() => onNavigate('about')}
               className={`hover:bg-[#004080] rounded px-2 py-1 transition-all whitespace-nowrap ${
-                currentPage === 'about' ? 'bg-[#004080]' : ''
+                currentPage === '/about' ? 'bg-[#004080]' : ''
               }`}
             >
               About Us
@@ -279,7 +279,7 @@ export function Header({
             <button 
               onClick={() => onNavigate('contact')}
               className={`hover:bg-[#004080] rounded px-2 py-1 transition-all whitespace-nowrap ${
-                currentPage === 'contact' ? 'bg-[#004080]' : ''
+                currentPage === '/contact' ? 'bg-[#004080]' : ''
               }`}
             >
               Contact Us
