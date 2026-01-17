@@ -137,6 +137,13 @@ export function AdminPage({
 
       // HTTP URL - Use Edge Function to bypass CORS (especially for Dropbox)
       if (imageUrl.startsWith('http')) {
+        // Special handling for Dropbox Preview links - warn user they typically don't work directly
+        if (imageUrl.includes('dropbox.com/preview')) {
+            console.warn(`⚠️ Detected Dropbox Preview link: ${imageUrl}. This may fail if valid authentication is not present. Trying anyway...`);
+            // Attempt to treat it as a potential direct link if format allows, but usually this fails.
+            // Ideally, we should prompt the user, but for bulk import we have to try our best.
+        }
+
         const isDropboxUrl = imageUrl.includes('dropbox.com');
         
         try {
@@ -147,6 +154,11 @@ export function AdminPage({
           try {
             console.log(`📥 Attempting to download image via Edge Function for ${productName}: ${imageUrl.substring(0, 80)}...`);
             
+            // Check for common error patterns before sending
+            if (imageUrl.includes('dropbox.com/preview')) {
+               console.warn(`Warning: ${productName} uses a Dropbox Preview link which usually requires login. Image upload may fail.`);
+            }
+
             const edgeResponse = await fetch(edgeFunctionUrl, {
               method: 'POST',
               headers: {

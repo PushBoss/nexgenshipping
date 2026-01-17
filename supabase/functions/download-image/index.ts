@@ -39,7 +39,19 @@ serve(async (req) => {
     // Convert Dropbox URLs to direct download format
     let downloadUrl = imageUrl;
     if (imageUrl.includes('dropbox.com')) {
-      // Replace any dl= value with dl=1
+      // Handle preview links (convert /preview/ to /s/) - This is a best-effort guess
+      // Actually, preview links are usually private. We can't easily fix them without auth.
+      // But if it's a public folder preview, maybe replacing /preview/ with /s/ works?
+      // Often /preview/path/to/file works if we change it to direct download.
+      // Let's try replacing '/preview/' with '/s/' if it exists, or just appending query params.
+      
+      // Dropbox strategy:
+      // 1. If it's a share link (dropbox.com/s/...), adding ?dl=1 works.
+      // 2. If it's a preview link (dropbox.com/preview/...), it likely requires auth.
+      // However, some users might copy a link that *looks* like a preview but might work as a download if tweaked.
+      // Let's rely on dl=1 and raw=1 which force download behavior on valid links.
+      
+      // Force dl=1 (download) instead of dl=0 (preview)
       if (downloadUrl.includes('dl=')) {
         downloadUrl = downloadUrl.replace(/dl=\d+/g, 'dl=1');
       } else {
@@ -47,6 +59,7 @@ serve(async (req) => {
       }
       
       // Add raw=1 for direct image serving
+      // Note: for some dropbox links, raw=1 redirects to the actual image file
       if (!downloadUrl.includes('raw=1')) {
         downloadUrl += '&raw=1';
       }
