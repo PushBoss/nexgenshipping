@@ -90,7 +90,7 @@ export function AdminPage({
     name: '',
     description: '',
     category: 'baby',
-    categoryId: 'apparel-accessories',
+    categoryId: 'apparel',
     price: '',
     currency: 'USD',
     costPrice: '',
@@ -321,7 +321,7 @@ export function AdminPage({
         name: newProduct.name,
         description: newProduct.description || '',
         category: newProduct.category || 'baby',
-        categoryId: newProduct.categoryId || 'apparel-accessories',
+        categoryId: newProduct.categoryId || 'apparel',
         price: parseFloat(newProduct.price) || 9.99,
         currency: newProduct.currency || 'USD',
         rating: parseFloat(newProduct.rating) || 4.5,
@@ -341,7 +341,7 @@ export function AdminPage({
         name: '',
         description: '',
         category: 'baby',
-        categoryId: 'apparel-accessories',
+        categoryId: 'apparel',
         price: '',
         currency: 'USD',
         costPrice: '',
@@ -362,7 +362,8 @@ export function AdminPage({
   const getCategoryName = (categoryId: string) => {
     const categories: Record<string, string> = {
       // Baby categories
-      'apparel-accessories': 'Apparel and Accessories',
+      'apparel': 'Apparel',
+      'accessories': 'Accessories',
       'baby-feeding': 'Baby Feeding',
       'baby-toys-entertainment': 'Baby Toys & Entertainment',
       // Pharmaceutical categories
@@ -542,7 +543,7 @@ export function AdminPage({
         // Smart category detection with defaults
         const validCategoryIds = [
           // Baby categories
-          'apparel-accessories', 'baby-feeding', 'baby-toys-entertainment',
+          'apparel', 'accessories', 'baby-feeding', 'baby-toys-entertainment',
           // Pharmaceutical categories
           'cold-cough-allergy-sinus', 'rubs-ointments', 'medicine-eye-care-first-aid',
           'condom-accessories', 'energy-tabs-vitamins', 'dental-care', 'feminine-care',
@@ -550,19 +551,23 @@ export function AdminPage({
         ];
         
         let category = 'baby'; // Default category
-        let categoryId = 'apparel-accessories'; // Default subcategory
+        let categoryId = 'apparel'; // Default subcategory
         
         // Try to use provided categoryId first
         if (row.categoryid && validCategoryIds.includes(row.categoryid.toLowerCase())) {
           categoryId = row.categoryid.toLowerCase();
           // Infer category from categoryId
-          category = categoryId.startsWith('baby') ? 'baby' : 'pharmaceutical';
+          if (categoryId === 'apparel' || categoryId === 'accessories' || categoryId.startsWith('baby')) {
+            category = 'baby';
+          } else {
+            category = 'pharmaceutical';
+          }
         }
         // Otherwise try to use provided category
         else if (row.category && ['baby', 'pharmaceutical'].includes(row.category.toLowerCase())) {
           category = row.category.toLowerCase();
           // Set default categoryId based on category
-          categoryId = category === 'baby' ? 'apparel-accessories' : 'cold-cough-allergy-sinus';
+          categoryId = category === 'baby' ? 'apparel' : 'cold-cough-allergy-sinus';
           if (row.categoryid) {
             warnings.push(`Row ${rowNum}: Invalid categoryId '${row.categoryid}', using default '${categoryId}' for ${category} category`);
           }
@@ -949,7 +954,7 @@ export function AdminPage({
 
   const downloadTemplate = () => {
     const template = `name,description,category,categoryId,price,currency,costPrice,stockCount,soldCount,rating,reviewCount,image,inStock,badge
-Baby Onesie,Soft cotton onesie for newborns,baby,apparel-accessories,12.99,USD,6.50,150,87,4.5,150,https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400,true,Best Seller
+Baby Onesie,Soft cotton onesie for newborns,baby,apparel,12.99,USD,6.50,150,87,4.5,150,https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400,true,Best Seller
 Infant Formula,Nutritious formula for babies 0-12 months,baby,baby-feeding,24.99,USD,15.00,200,123,4.8,200,https://images.unsplash.com/photo-1587049352846-4a222e784acc?w=400,true,Standard
 Cold Medicine,Fast relief for cold and flu symptoms,pharmaceutical,cold-cough-allergy-sinus,8.99,USD,4.25,300,456,4.6,180,https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400,true,
 Baby Toy Set,Colorful educational toys,baby,baby-toys-entertainment,19.99,USD,10.00,100,45,4.7,89,https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=400,true,New
@@ -1175,7 +1180,8 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                               <SelectContent>
                                 {newProduct.category === 'baby' ? (
                                   <>
-                                    <SelectItem value="apparel-accessories">Apparel & Accessories</SelectItem>
+                                    <SelectItem value="apparel">Apparel</SelectItem>
+                                    <SelectItem value="accessories">Accessories</SelectItem>
                                     <SelectItem value="baby-feeding">Feeding</SelectItem>
                                     <SelectItem value="baby-toys-entertainment">Toys & Entertainment</SelectItem>
                                   </>
@@ -1430,7 +1436,8 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                                 <SelectContent>
                                   {editingProduct.category === 'baby' ? (
                                     <>
-                                      <SelectItem value="apparel-accessories">Apparel & Accessories</SelectItem>
+                                      <SelectItem value="apparel">Apparel</SelectItem>
+                                      <SelectItem value="accessories">Accessories</SelectItem>
                                       <SelectItem value="baby-feeding">Feeding</SelectItem>
                                       <SelectItem value="baby-toys-entertainment">Toys & Entertainment</SelectItem>
                                     </>
@@ -2093,7 +2100,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                       <div className="mt-3">
                         <span className="font-medium">Valid categoryId values:</span>
                         <ul className="list-disc list-inside ml-4 mt-1 text-sm">
-                          <li><strong>Baby:</strong> apparel-accessories, baby-feeding, baby-toys-entertainment</li>
+                          <li><strong>Baby:</strong> apparel, accessories, baby-feeding, baby-toys-entertainment</li>
                           <li><strong>Pharmaceutical:</strong> cold-cough-allergy-sinus, rubs-ointments, medicine-eye-care-first-aid, condom-accessories, energy-tabs-vitamins, dental-care, feminine-care, pest-control-repellant, stomach-meds, otc-medicines, lip-care</li>
                         </ul>
                       </div>
