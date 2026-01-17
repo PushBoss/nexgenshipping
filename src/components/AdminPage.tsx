@@ -18,7 +18,6 @@ import { SupabaseStatus } from './SupabaseStatus';
 import { DataManagementPanel } from './DataManagementPanel';
 import { UserManagementPanel } from './UserManagementPanel';
 import { supabase } from '../utils/supabaseClient';
-import { supabaseAdmin } from '../utils/supabaseAdmin';
 import { paymentGatewayService, PaymentGatewaySettings } from '../utils/paymentGatewayService';
 import { Switch } from './ui/switch';
 import { publicAnonKey } from '../utils/supabase/info';
@@ -130,9 +129,9 @@ export function AdminPage({
         const res = await fetch(imageUrl);
         const blob = await res.blob();
         // Use admin client to bypass RLS policies
-        const { error } = await supabaseAdmin.storage.from('product-images').upload(fileName, blob, { upsert: true });
+        const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
         if (error) throw error;
-        const { data } = supabaseAdmin.storage.from('product-images').getPublicUrl(fileName);
+        const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
         return data.publicUrl || imageUrl;
       }
 
@@ -184,13 +183,13 @@ export function AdminPage({
                   console.log(`📤 Uploading blob to storage for ${productName} (size: ${blob.size} bytes, type: ${blob.type})`);
                   
                   // Upload to Supabase Storage using admin client to bypass RLS
-                  const { error, data: uploadData } = await supabaseAdmin.storage.from('product-images').upload(fileName, blob, { upsert: true });
+                  const { error, data: uploadData } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
                   if (error) {
                     console.error(`❌ Storage upload error for ${productName}:`, error);
                     throw error;
                   }
                   
-                  const { data: urlData } = supabaseAdmin.storage.from('product-images').getPublicUrl(fileName);
+                  const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
                   const publicUrl = urlData.publicUrl || imageUrl;
                   console.log(`✅ Successfully uploaded image via Edge Function for ${productName}: ${publicUrl}`);
                   return publicUrl;
@@ -227,9 +226,9 @@ export function AdminPage({
             if (!res.ok) throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
           const blob = await res.blob();
             // Use admin client to bypass RLS policies
-            const { error } = await supabaseAdmin.storage.from('product-images').upload(fileName, blob, { upsert: true });
+            const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
           if (error) throw error;
-            const { data } = supabaseAdmin.storage.from('product-images').getPublicUrl(fileName);
+            const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
             console.log(`✅ Successfully uploaded image via direct fetch for ${productName}`);
           return data.publicUrl || imageUrl;
           } catch (directFetchError: any) {
@@ -543,7 +542,7 @@ export function AdminPage({
         // Smart category detection with defaults
         const validCategoryIds = [
           // Baby categories
-          'apparel', 'accessories', 'baby-feeding', 'baby-toys-entertainment',
+          'apparel', 'accessories',
           // Pharmaceutical categories
           'cold-cough-allergy-sinus', 'rubs-ointments', 'medicine-eye-care-first-aid',
           'condom-accessories', 'energy-tabs-vitamins', 'dental-care', 'feminine-care',
@@ -2100,7 +2099,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                       <div className="mt-3">
                         <span className="font-medium">Valid categoryId values:</span>
                         <ul className="list-disc list-inside ml-4 mt-1 text-sm">
-                          <li><strong>Baby:</strong> apparel, accessories, baby-feeding, baby-toys-entertainment</li>
+                          <li><strong>Baby:</strong> apparel, accessories</li>
                           <li><strong>Pharmaceutical:</strong> cold-cough-allergy-sinus, rubs-ointments, medicine-eye-care-first-aid, condom-accessories, energy-tabs-vitamins, dental-care, feminine-care, pest-control-repellant, stomach-meds, otc-medicines, lip-care</li>
                         </ul>
                       </div>

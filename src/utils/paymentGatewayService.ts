@@ -4,7 +4,6 @@
  */
 
 import { supabase } from './supabaseClient';
-import { supabaseAdmin } from './supabaseAdmin';
 import { config } from './config';
 
 export interface PaymentGatewaySettings {
@@ -68,7 +67,7 @@ export const paymentGatewayService = {
       };
 
       // Use admin client to bypass RLS
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await supabase
         .from('payment_gateway_settings')
         .update(updateData)
         .eq('id', SETTINGS_ROW_ID)

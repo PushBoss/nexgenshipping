@@ -1,5 +1,4 @@
 import { supabase } from './supabaseClient';
-import { supabaseAdmin } from './supabaseAdmin';
 
 export interface Review {
   id: string;
