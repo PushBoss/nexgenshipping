@@ -89,8 +89,36 @@ serve(async (req) => {
       );
     }
 
-    // Get the image as a blob
-    const imageBlob = await response.blob();
+    // Determine content type and validate it is an image
+    const contentType = response.headers.get('content-type') || imageBlob.type;
+    
+    if (!contentType || !contentType.startsWith('image/')) {
+        console.error('URL returned non-image content type:', contentType);
+        // Special error for Dropbox login pages
+        if (imageUrl.includes('dropbox.com') && contentType?.includes('text/html')) {
+            return new Response(
+                JSON.stringify({
+                    success: false,
+                    error: 'Dropbox URL returned HTML (login page) instead of an image. Use a public "Shared Link" (Copy Link) instead of a private Preview link.',
+                }),
+                {
+                    status: 400,
+                    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+                }
+            );
+        }
+        
+        return new Response(
+            JSON.stringify({
+                success: false,
+                error: `URL returned non-image content type: ${contentType}`,
+            }),
+            {
+                status: 400,
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            }
+        );
+    }
     const arrayBuffer = await imageBlob.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
     
