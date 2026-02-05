@@ -81,7 +81,7 @@ function AppContent() {
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
-  const ITEMS_PER_PAGE = 20;
+  const ITEMS_PER_PAGE = 100;
 
   // Handle currency change
   const handleCurrencyChange = (currency: Currency) => {
