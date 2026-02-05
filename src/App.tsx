@@ -624,7 +624,7 @@ function AppContent() {
                 try {
                   const count = await productsService.bulkImport(productsToImport);
                   // Reload products
-                  const { products: loadedProducts, count } = await productsService.getProducts({
+                  const { products: loadedProducts, count: totalCount } = await productsService.getProducts({
                     page: currentPage,
                     limit: ITEMS_PER_PAGE,
                     category: selectedCategory,
@@ -633,7 +633,7 @@ function AppContent() {
                     search: searchQuery
                   });
                   setProducts(loadedProducts);
-                  setTotalProducts(count);
+                  setTotalProducts(totalCount);
                   return count;
                 } catch (error) {
                   console.error('Failed to bulk import products:', error);
