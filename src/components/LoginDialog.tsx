@@ -33,6 +33,10 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
   const [signUpEmail, setSignUpEmail] = useState('');
   const [signUpPassword, setSignUpPassword] = useState('');
   const [signUpConfirmPassword, setSignUpConfirmPassword] = useState('');
+  const [tier, setTier] = useState<'free' | 'pro' | 'reseller'>('free');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'annual'>('monthly');
+  const [numberOfCompanies, setNumberOfCompanies] = useState<number>(1);
+  const [numberOfEmployees, setNumberOfEmployees] = useState<number>(1);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
 
@@ -106,6 +110,18 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
       return;
     }
 
+    // Validate reseller-specific fields
+    if (tier === 'reseller' && (!numberOfCompanies || numberOfCompanies < 1)) {
+      toast.error('Please enter number of companies for reseller tier');
+      return;
+    }
+
+    // Enforce free tier employee limit
+    if (tier === 'free' && numberOfEmployees > 5) {
+      toast.error('Free tier is limited to 5 employees. Select a paid tier to proceed.');
+      return;
+    }
+
     if (signUpPassword !== signUpConfirmPassword) {
       toast.error('Passwords do not match');
       return;
@@ -126,6 +142,10 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
         const result = await authService.signUp(signUpEmail, signUpPassword, {
           firstName,
           lastName,
+          tier,
+          billingCycle,
+          numberOfCompanies,
+          numberOfEmployees,
         });
         
         console.log('🔵 Sign up result:', result);
@@ -302,6 +322,67 @@ export function LoginDialog({ open, onOpenChange, onLogin }: LoginDialogProps) {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     disabled={isLoading}
+                  />
+                </div>
+              </div>
+
+              {/* Tier & Billing */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="tier">Account Tier</Label>
+                  <select
+                    id="tier"
+                    value={tier}
+                    onChange={(e) => setTier(e.target.value as 'free' | 'pro' | 'reseller')}
+                    className="w-full rounded border px-3 py-2"
+                    disabled={isLoading}
+                  >
+                    <option value="free">Free</option>
+                    <option value="pro">Pro</option>
+                    <option value="reseller">Reseller</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Billing Cycle</Label>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBillingCycle('monthly')}
+                      className={`px-3 py-2 rounded ${billingCycle === 'monthly' ? 'bg-[#003366] text-white' : 'bg-white border'}`}>
+                      Monthly
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBillingCycle('annual')}
+                      className={`px-3 py-2 rounded ${billingCycle === 'annual' ? 'bg-[#003366] text-white' : 'bg-white border'}`}>
+                      Annual
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Company / Employee counts */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="numEmployees">Number of Employees</Label>
+                  <Input
+                    id="numEmployees"
+                    type="number"
+                    min={1}
+                    value={numberOfEmployees}
+                    onChange={(e) => setNumberOfEmployees(Number(e.target.value))}
+                    disabled={isLoading}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="numCompanies">Number of Companies</Label>
+                  <Input
+                    id="numCompanies"
+                    type="number"
+                    min={1}
+                    value={numberOfCompanies}
+                    onChange={(e) => setNumberOfCompanies(Number(e.target.value))}
+                    disabled={isLoading || tier !== 'reseller'}
                   />
                 </div>
               </div>

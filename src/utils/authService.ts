@@ -26,7 +26,7 @@ export const authService = {
   /**
    * Sign up a new user
    */
-  async signUp(email: string, password: string, metadata?: { firstName?: string; lastName?: string }): Promise<AuthResponse> {
+  async signUp(email: string, password: string, metadata?: { firstName?: string; lastName?: string; tier?: string; billingCycle?: string; numberOfCompanies?: number; numberOfEmployees?: number }): Promise<AuthResponse> {
     if (!config.useSupabase) {
       return {
         success: false,
@@ -54,6 +54,10 @@ export const authService = {
             password,
             firstName: metadata?.firstName,
             lastName: metadata?.lastName,
+            tier: metadata?.tier,
+            billingCycle: metadata?.billingCycle,
+            numberOfCompanies: metadata?.numberOfCompanies,
+            numberOfEmployees: metadata?.numberOfEmployees,
           }),
         });
 
@@ -84,6 +88,10 @@ export const authService = {
             first_name: metadata?.firstName || '',
             last_name: metadata?.lastName || '',
             is_admin: false,
+            tier: metadata?.tier || 'free',
+            billing_cycle: metadata?.billingCycle || 'monthly',
+            num_companies: metadata?.numberOfCompanies || 1,
+            num_employees: metadata?.numberOfEmployees || 1,
           },
         },
       });
@@ -364,7 +372,7 @@ export const authService = {
   /**
    * Create user profile after signup
    */
-  async createUserProfile(userId: string, _email: string, metadata?: { firstName?: string; lastName?: string }) {
+  async createUserProfile(userId: string, _email: string, metadata?: { firstName?: string; lastName?: string; tier?: string; billingCycle?: string; numberOfCompanies?: number; numberOfEmployees?: number }) {
     if (!config.useSupabase) {
       return;
     }
@@ -380,6 +388,10 @@ export const authService = {
           first_name: metadata?.firstName || '',
           last_name: metadata?.lastName || '',
           is_admin: false,
+          tier: metadata?.tier || 'free',
+          billing_cycle: metadata?.billingCycle || 'monthly',
+          num_companies: metadata?.numberOfCompanies || 1,
+          num_employees: metadata?.numberOfEmployees || 1,
         });
 
       if (error) {
