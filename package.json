@@ -1,5 +1,5 @@
 {
-      "name": "Redesign NexGen Shipping Website",
+      "name": "nexgen-shipping-website",
       "version": "0.1.0",
       "private": true,
       "dependencies": {
