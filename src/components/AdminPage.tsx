@@ -18,6 +18,7 @@ import { SupabaseStatus } from './SupabaseStatus';
 import { DataManagementPanel } from './DataManagementPanel';
 import { UserManagementPanel } from './UserManagementPanel';
 import { supabase } from '../utils/supabaseClient';
+import { supabaseAdmin } from '../utils/supabaseAdminClient';
 import { paymentGatewayService, PaymentGatewaySettings } from '../utils/paymentGatewayService';
 import { Switch } from './ui/switch';
 import { publicAnonKey } from '../utils/supabase/info';
@@ -129,9 +130,10 @@ export function AdminPage({
         const res = await fetch(imageUrl);
         const blob = await res.blob();
         // Use admin client to bypass RLS policies
-        const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
+        const storageClient = supabaseAdmin || supabase;
+        const { error } = await storageClient.storage.from('product-images').upload(fileName, blob, { upsert: true });
         if (error) throw error;
-        const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
+        const { data } = storageClient.storage.from('product-images').getPublicUrl(fileName);
         return data.publicUrl || imageUrl;
       }
 
@@ -195,13 +197,14 @@ export function AdminPage({
                   console.log(`📤 Uploading blob to storage for ${productName} (size: ${blob.size} bytes, type: ${blob.type})`);
 
                   // Upload to Supabase Storage using admin client to bypass RLS
-                  const { error, data: uploadData } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
+                  const storageClient = supabaseAdmin || supabase;
+                  const { error, data: uploadData } = await storageClient.storage.from('product-images').upload(fileName, blob, { upsert: true });
                   if (error) {
                     console.error(`❌ Storage upload error for ${productName}:`, error);
                     throw error;
                   }
 
-                  const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
+                  const { data: urlData } = storageClient.storage.from('product-images').getPublicUrl(fileName);
                   const publicUrl = urlData.publicUrl || imageUrl;
                   console.log(`✅ Successfully uploaded image via Edge Function for ${productName}: ${publicUrl}`);
                   return publicUrl;
@@ -238,9 +241,10 @@ export function AdminPage({
             if (!res.ok) throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
             const blob = await res.blob();
             // Use admin client to bypass RLS policies
-            const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
+            const storageClient = supabaseAdmin || supabase;
+            const { error } = await storageClient.storage.from('product-images').upload(fileName, blob, { upsert: true });
             if (error) throw error;
-            const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
+            const { data } = storageClient.storage.from('product-images').getPublicUrl(fileName);
             console.log(`✅ Successfully uploaded image via direct fetch for ${productName}`);
             return data.publicUrl || imageUrl;
           } catch (directFetchError: any) {
@@ -1134,6 +1138,9 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                         <DialogHeader>
                           <DialogTitle>Add New Product</DialogTitle>
+                          <DialogDescription>
+                            Fill in the product details below. Only the product name is required.
+                          </DialogDescription>
                         </DialogHeader>
                         <div className="grid gap-4 py-4">
                           <div className="grid gap-2">
@@ -1401,6 +1408,9 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                         <DialogHeader>
                           <DialogTitle>Edit Product</DialogTitle>
+                          <DialogDescription>
+                            Update the product details below.
+                          </DialogDescription>
                         </DialogHeader>
                         {editingProduct && (
                           <div className="grid gap-4 py-4">
@@ -1983,6 +1993,9 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                               <DialogContent>
                                 <DialogHeader>
                                   <DialogTitle>Create Sale</DialogTitle>
+                                  <DialogDescription>
+                                    Set a discount percentage for this product.
+                                  </DialogDescription>
                                 </DialogHeader>
                                 <div className="space-y-4 py-4">
                                   <div>
@@ -2514,22 +2527,22 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                           <AlertCircle className="h-5 w-5" />
                           Confirm Bulk Delete
                         </DialogTitle>
-                        <div className="text-sm text-gray-600 space-y-2">
-                          {bulkDeleteAction === 'purge' && (
-                            <div className="space-y-2 mt-4">
-                              <p className="font-medium text-red-900">
-                                You are about to delete ALL {products.length} products!
-                              </p>
-                              <p className="text-sm">
-                                This will permanently remove:
-                              </p>
-                              <ul className="list-disc list-inside text-sm space-y-1 ml-4">
-                                <li>{products.filter(p => p.category === 'baby').length} Baby products</li>
-                                <li>{products.filter(p => p.category === 'pharmaceutical').length} Pharmaceutical products</li>
-                              </ul>
-                            </div>
-                          )}
-                          {bulkDeleteAction === 'baby' && (
+                        <DialogDescription>
+                          This action cannot be undone. Please confirm you want to proceed with deleting.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        {bulkDeleteAction === 'purge' && (
+                          <div>
+                            <p className="text-sm">
+                              This will permanently remove:
+                            </p>
+                            <ul className="list-disc list-inside text-sm space-y-1 ml-4">
+                              <li>{products.filter(p => p.category === 'baby').length} Baby products</li>
+                              <li>{products.filter(p => p.category === 'pharmaceutical').length} Pharmaceutical products</li>
+                            </ul>
+                          </div>
+                        )}
                             <div className="space-y-2 mt-4">
                               <p className="font-medium">
                                 You are about to delete {products.filter(p => p.category === 'baby').length} baby product(s).
