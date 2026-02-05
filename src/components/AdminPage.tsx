@@ -112,7 +112,7 @@ export function AdminPage({
       const timestamp = Date.now();
       const indexSuffix = index !== undefined ? `-${index}` : '';
       const sanitizedName = productName.toLowerCase().replace(/[^a-z0-9]/g, '-').substring(0, 50);
-      
+
       // Determine file extension from URL or default to png
       let extension = 'png';
       if (imageUrl.includes('.')) {
@@ -121,7 +121,7 @@ export function AdminPage({
           extension = urlExtension || 'png';
         }
       }
-      
+
       const fileName = `${sanitizedName}-${timestamp}${indexSuffix}.${extension}`;
 
       // Data URL
@@ -139,24 +139,24 @@ export function AdminPage({
       if (imageUrl.startsWith('http')) {
         // Special handling for Dropbox Preview links - warn user they typically don't work directly
         if (imageUrl.includes('dropbox.com/preview')) {
-            console.warn(`⚠️ Detected Dropbox Preview link: ${imageUrl}. This may fail if valid authentication is not present. Trying anyway...`);
-            // Attempt to treat it as a potential direct link if format allows, but usually this fails.
-            // Ideally, we should prompt the user, but for bulk import we have to try our best.
+          console.warn(`⚠️ Detected Dropbox Preview link: ${imageUrl}. This may fail if valid authentication is not present. Trying anyway...`);
+          // Attempt to treat it as a potential direct link if format allows, but usually this fails.
+          // Ideally, we should prompt the user, but for bulk import we have to try our best.
         }
 
         const isDropboxUrl = imageUrl.includes('dropbox.com');
-        
+
         try {
           // Try using Edge Function first to bypass CORS
           const supabaseUrl = `https://erxkwytqautexizleeov.supabase.co`;
           const edgeFunctionUrl = `${supabaseUrl}/functions/v1/download-image`;
-          
+
           try {
             console.log(`📥 Attempting to download image via Edge Function for ${productName}: ${imageUrl.substring(0, 80)}...`);
-            
+
             // Check for common error patterns before sending
             if (imageUrl.includes('dropbox.com/preview')) {
-               console.warn(`Warning: ${productName} uses a Dropbox Preview link which usually requires login. Image upload may fail.`);
+              console.warn(`Warning: ${productName} uses a Dropbox Preview link which usually requires login. Image upload may fail.`);
             }
 
             const edgeResponse = await fetch(edgeFunctionUrl, {
@@ -178,12 +178,12 @@ export function AdminPage({
                   if (!base64Data || typeof base64Data !== 'string') {
                     throw new Error('Invalid base64 data received from Edge Function');
                   }
-                  
+
                   // Validate base64 format (basic check)
                   if (!/^[A-Za-z0-9+/]*={0,2}$/.test(base64Data)) {
                     throw new Error('Invalid base64 format received from Edge Function');
                   }
-                  
+
                   // Convert base64 to blob
                   const binaryString = atob(base64Data);
                   const bytes = new Uint8Array(binaryString.length);
@@ -191,16 +191,16 @@ export function AdminPage({
                     bytes[i] = binaryString.charCodeAt(i);
                   }
                   const blob = new Blob([bytes], { type: edgeResult.contentType || 'image/jpeg' });
-                  
+
                   console.log(`📤 Uploading blob to storage for ${productName} (size: ${blob.size} bytes, type: ${blob.type})`);
-                  
+
                   // Upload to Supabase Storage using admin client to bypass RLS
                   const { error, data: uploadData } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
                   if (error) {
                     console.error(`❌ Storage upload error for ${productName}:`, error);
                     throw error;
                   }
-                  
+
                   const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
                   const publicUrl = urlData.publicUrl || imageUrl;
                   console.log(`✅ Successfully uploaded image via Edge Function for ${productName}: ${publicUrl}`);
@@ -234,15 +234,15 @@ export function AdminPage({
           // Fallback to direct fetch for non-Dropbox URLs only
           try {
             console.log(`🔄 Attempting direct fetch fallback for ${productName}...`);
-          const res = await fetch(imageUrl);
+            const res = await fetch(imageUrl);
             if (!res.ok) throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
-          const blob = await res.blob();
+            const blob = await res.blob();
             // Use admin client to bypass RLS policies
             const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
-          if (error) throw error;
+            if (error) throw error;
             const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
             console.log(`✅ Successfully uploaded image via direct fetch for ${productName}`);
-          return data.publicUrl || imageUrl;
+            return data.publicUrl || imageUrl;
           } catch (directFetchError: any) {
             console.warn(`⚠️ Direct fetch also failed for ${productName}:`, directFetchError.message || directFetchError);
             return imageUrl; // Return original URL if both methods fail
@@ -258,7 +258,7 @@ export function AdminPage({
       return imageUrl;
     }
   };
-  
+
   const handleOpenEditDialog = (product: Product) => {
     try {
       setEditingProduct({ ...product });
@@ -270,41 +270,41 @@ export function AdminPage({
     }
   };
 
-    // Handle editing product (save changes)
-    const handleEditProduct = async () => {
-      if (!editingProduct) return;
+  // Handle editing product (save changes)
+  const handleEditProduct = async () => {
+    if (!editingProduct) return;
 
-      if (!editingProduct.name || !editingProduct.price) {
-        toast.error('Please fill in all required fields');
-        return;
+    if (!editingProduct.name || !editingProduct.price) {
+      toast.error('Please fill in all required fields');
+      return;
+    }
+
+    try {
+      let imageUrl = convertDropboxUrl(editingProduct.image || '');
+      if (imageUrl && imageUrl.trim()) {
+        imageUrl = await uploadImageToStorage(imageUrl, editingProduct.name);
       }
 
-      try {
-        let imageUrl = convertDropboxUrl(editingProduct.image || '');
-        if (imageUrl && imageUrl.trim()) {
-          imageUrl = await uploadImageToStorage(imageUrl, editingProduct.name);
-        }
+      onUpdateProduct(editingProduct.id, {
+        name: editingProduct.name,
+        category: editingProduct.category,
+        categoryId: editingProduct.categoryId,
+        price: editingProduct.price,
+        rating: editingProduct.rating,
+        reviewCount: editingProduct.reviewCount,
+        image: imageUrl,
+        inStock: editingProduct.inStock,
+        badge: editingProduct.badge,
+      });
 
-        onUpdateProduct(editingProduct.id, {
-          name: editingProduct.name,
-          category: editingProduct.category,
-          categoryId: editingProduct.categoryId,
-          price: editingProduct.price,
-          rating: editingProduct.rating,
-          reviewCount: editingProduct.reviewCount,
-          image: imageUrl,
-          inStock: editingProduct.inStock,
-          badge: editingProduct.badge,
-        });
-
-        toast.success('Product updated successfully!');
-        setIsEditDialogOpen(false);
-        setEditingProduct(null);
-      } catch (error) {
-        console.error('Error updating product:', error);
-        toast.error('Failed to update product');
-      }
-    };
+      toast.success('Product updated successfully!');
+      setIsEditDialogOpen(false);
+      setEditingProduct(null);
+    } catch (error) {
+      console.error('Error updating product:', error);
+      toast.error('Failed to update product');
+    }
+  };
 
 
   const handleDeleteProduct = (product: Product) => {
@@ -380,7 +380,9 @@ export function AdminPage({
       // Pharmaceutical categories
       'cold-cough-allergy-sinus': 'Cold, Cough, Allergy & Sinus',
       'rubs-ointments': 'Rubs & Ointments',
-      'medicine-eye-care-first-aid': 'Medicine, Eye Care & First Aid',
+      'medicine': 'Medicine',
+      'eye-care': 'Eye Care',
+      'first-aid': 'First Aid',
       'condom-accessories': 'Condom & Accessories',
       'energy-tabs-vitamins': 'Energy Tabs & Vitamins',
       'dental-care': 'Dental Care',
@@ -398,12 +400,12 @@ export function AdminPage({
     if (!url || !url.includes('dropbox.com')) {
       return url;
     }
-    
+
     // Convert preview links to direct download links
     // From: https://www.dropbox.com/scl/fi/xxx?rlkey=xxx&st=xxx&dl=0
     // To:   https://www.dropbox.com/scl/fi/xxx?rlkey=xxx&st=xxx&dl=1&raw=1
     let convertedUrl = url;
-    
+
     // Replace any dl= value (dl=0, dl=1, dl=2, etc.) with dl=1
     if (convertedUrl.includes('dl=')) {
       convertedUrl = convertedUrl.replace(/dl=\d+/g, 'dl=1');
@@ -411,12 +413,12 @@ export function AdminPage({
       // Add dl=1 if not present
       convertedUrl += (convertedUrl.includes('?') ? '&' : '?') + 'dl=1';
     }
-    
+
     // Add raw=1 for direct image serving
     if (!convertedUrl.includes('raw=1')) {
       convertedUrl += '&raw=1';
     }
-    
+
     return convertedUrl;
   };
 
@@ -468,11 +470,11 @@ export function AdminPage({
     const duplicates: string[] = [];
     const unique: any[] = [];
     const seenInCsv = new Set<string>();
-    
+
     csvProducts.forEach((product, index) => {
       const name = product.name.toLowerCase().trim();
       const rowNum = index + 2; // Account for header row
-      
+
       if (existing.includes(name)) {
         duplicates.push(`   Row ${rowNum}: "${product.name}" - already exists in catalog`);
       } else if (seenInCsv.has(name)) {
@@ -482,7 +484,7 @@ export function AdminPage({
         seenInCsv.add(name);
       }
     });
-    
+
     return { unique, duplicates };
   };
 
@@ -522,7 +524,7 @@ export function AdminPage({
         setIsProcessingCsv(false);
         return;
       }
-      
+
       // Warn if price column is missing
       if (!headers.includes('price')) {
         warnings.push('⚠️ Price column not found - all products will use default price ($9.99)');
@@ -556,14 +558,14 @@ export function AdminPage({
           // Baby categories
           'apparel', 'accessories',
           // Pharmaceutical categories
-          'cold-cough-allergy-sinus', 'rubs-ointments', 'medicine-eye-care-first-aid',
+          'cold-cough-allergy-sinus', 'rubs-ointments', 'medicine', 'eye-care', 'first-aid',
           'condom-accessories', 'energy-tabs-vitamins', 'dental-care', 'feminine-care',
           'pest-control-repellant', 'stomach-meds', 'otc-medicines', 'lip-care'
         ];
-        
+
         let category = 'baby'; // Default category
         let categoryId = 'apparel'; // Default subcategory
-        
+
         // Try to use provided categoryId first
         if (row.categoryid && validCategoryIds.includes(row.categoryid.toLowerCase())) {
           categoryId = row.categoryid.toLowerCase();
@@ -589,13 +591,13 @@ export function AdminPage({
             warnings.push(`Row ${rowNum}: Invalid category/categoryId values, using defaults (baby / baby-clothing-accessories)`);
           }
         }
-        
+
         row.category = category;
         row.categoryid = categoryId;
 
         // Transform optional fields with smart defaults
         const description = row.description || '';
-        
+
         // Rating with default
         let rating = 4.5;
         if (row.rating) {
@@ -605,7 +607,7 @@ export function AdminPage({
             rating = 4.5;
           }
         }
-        
+
         // Review count with default
         let reviewCount = 100;
         if (row.reviewcount) {
@@ -615,14 +617,14 @@ export function AdminPage({
             reviewCount = 100;
           }
         }
-        
+
         // InStock with default
         const inStock = row.instock?.toLowerCase() === 'true' || row.instock === '1' || !row.instock;
-        
+
         // Badge - no default, only set if explicitly provided
         const validBadges = ['Best Seller', 'Top Rated', 'New', 'Standard'];
         let badge: string | undefined = undefined;
-        
+
         if (row.badge) {
           if (row.badge.toLowerCase() === 'default') {
             badge = 'Standard';
@@ -633,7 +635,7 @@ export function AdminPage({
             warnings.push(`Row ${rowNum}: Invalid badge '${row.badge}', using 'Standard'`);
           }
         }
-        
+
         // Currency with default
         let currency: 'USD' | 'JMD' | 'CAD' = 'USD';
         if (row.currency) {
@@ -655,7 +657,7 @@ export function AdminPage({
             warnings.push(`Row ${rowNum}: Invalid costPrice '${row.costprice}', skipping`);
           }
         }
-        
+
         let stockCount: number | undefined = undefined;
         if (row.stockcount) {
           const parsed = parseInt(row.stockcount);
@@ -665,7 +667,7 @@ export function AdminPage({
             warnings.push(`Row ${rowNum}: Invalid stockCount '${row.stockcount}', skipping`);
           }
         }
-        
+
         let soldCount = 0;
         if (row.soldcount) {
           const parsed = parseInt(row.soldcount);
@@ -675,7 +677,7 @@ export function AdminPage({
             warnings.push(`Row ${rowNum}: Invalid soldCount '${row.soldcount}', using default (0)`);
           }
         }
-        
+
         // Image - Support Dropbox URLs and convert to direct download format
         let image = row.image || '';
         if (image) {
@@ -708,7 +710,7 @@ export function AdminPage({
       // Detect duplicates
       const duplicateInfo = detectDuplicates(parsedData, products);
       const uniqueProducts = duplicateInfo.unique;
-      
+
       // Add duplicate warnings
       if (duplicateInfo.duplicates.length > 0) {
         warnings.push('');
@@ -722,7 +724,7 @@ export function AdminPage({
       setCsvData(uniqueProducts);
       setCsvErrors(errors);
       setCsvWarnings(warnings);
-      
+
       if (uniqueProducts.length > 0 && errors.length === 0) {
         setShowCsvPreview(true);
         if (duplicateInfo.duplicates.length > 0) {
@@ -760,11 +762,11 @@ export function AdminPage({
     try {
       // Filter out duplicates first
       const newProducts: Omit<Product, 'id'>[] = [];
-      const productsToProcess: Array<{product: Omit<Product, 'id'>, index: number}> = [];
+      const productsToProcess: Array<{ product: Omit<Product, 'id'>, index: number }> = [];
 
       csvData.forEach((product, index) => {
-        const existingProduct = products.find(p => 
-          p.name.toLowerCase() === product.name.toLowerCase() && 
+        const existingProduct = products.find(p =>
+          p.name.toLowerCase() === product.name.toLowerCase() &&
           p.category === product.category
         );
 
@@ -801,7 +803,7 @@ export function AdminPage({
               if (product.image.includes('supabase.co')) {
                 return product;
               }
-              
+
               const uploadedImageUrl = await uploadImageToStorage(product.image, product.name, index);
               if (uploadedImageUrl !== product.image) {
                 imageUploadCount++;
@@ -862,7 +864,7 @@ export function AdminPage({
       if (skippedCount > 0) {
         message += ` (${skippedCount} duplicates skipped)`;
       }
-      
+
       toast.success(message);
     } catch (error) {
       console.error('Bulk import error:', error);
@@ -888,9 +890,9 @@ export function AdminPage({
   // Migrate existing product images from Dropbox URLs to Supabase Storage
   const handleMigrateImages = async () => {
     // Find products with Dropbox URLs
-    const productsWithDropboxUrls = products.filter(p => 
-      p.image && 
-      p.image.includes('dropbox.com') && 
+    const productsWithDropboxUrls = products.filter(p =>
+      p.image &&
+      p.image.includes('dropbox.com') &&
       !p.image.includes('supabase.co')
     );
 
@@ -920,7 +922,7 @@ export function AdminPage({
         const batch = productsWithDropboxUrls.slice(i, i + BATCH_SIZE);
         const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
         const totalBatches = Math.ceil(productsWithDropboxUrls.length / BATCH_SIZE);
-        
+
         toast.info(`Migrating images: batch ${batchNumber}/${totalBatches}...`);
 
         const migrationPromises = batch.map(async (product) => {
@@ -952,7 +954,7 @@ export function AdminPage({
         message += ` (${failedCount} failed)`;
       }
       toast.success(message);
-      
+
       // Refresh products to show updated URLs
       window.location.reload();
     } catch (error) {
@@ -990,7 +992,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
   const confirmBulkDelete = async () => {
     if (!bulkDeleteAction) return;
 
-    const productsToDelete = bulkDeleteAction === 'purge' 
+    const productsToDelete = bulkDeleteAction === 'purge'
       ? products
       : products.filter(p => p.category === bulkDeleteAction);
 
@@ -1005,15 +1007,15 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
       const { productsService } = await import('../utils/productsService');
       const deletedCount = await productsService.bulkDelete(bulkDeleteAction);
 
-    const message = bulkDeleteAction === 'purge'
+      const message = bulkDeleteAction === 'purge'
         ? `All ${deletedCount} products deleted`
         : `${deletedCount} ${bulkDeleteAction} product(s) deleted`;
-    
-    toast.success(message);
-    
+
+      toast.success(message);
+
       // Reload products by calling parent's refresh (if available) or reload page
       // The parent component (App.tsx) will reload products automatically
-    window.location.reload();
+      window.location.reload();
     } catch (error) {
       console.error('Bulk delete error:', error);
       toast.error(`Failed to delete products: ${error instanceof Error ? error.message : 'Unknown error'}`);
@@ -1025,12 +1027,12 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
 
   // Filter products based on search and category
   const filteredProducts = products.filter((product) => {
-    const matchesSearch = searchQuery.trim() === '' || 
+    const matchesSearch = searchQuery.trim() === '' ||
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       product.id.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
-    
+
     return matchesSearch && matchesCategory;
   });
 
@@ -1050,7 +1052,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
         {/* Data Management Panel */}
         <div className="mb-6">
           <DataManagementPanel products={products} />
-          
+
           {/* Image Migration Button */}
           {products.some(p => p.image && p.image.includes('dropbox.com') && !p.image.includes('supabase.co')) && (
             <Card className="mt-4">
@@ -1124,302 +1126,46 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                       <CardDescription>Add, edit, or remove products from your catalog</CardDescription>
                     </div>
                     <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button className="bg-[#DC143C] hover:bg-[#B01030]">
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add Product
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>Add New Product</DialogTitle>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid gap-2">
-                          <Label htmlFor="name">Product Name *</Label>
-                          <Input
-                            id="name"
-                            value={newProduct.name}
-                            onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                            placeholder="Enter product name"
-                          />
-                        </div>
-
-                        <div className="grid gap-2">
-                          <Label htmlFor="description">Description</Label>
-                          <Textarea
-                            id="description"
-                            value={newProduct.description}
-                            onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-                            placeholder="Enter product description"
-                            rows={3}
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="grid gap-2">
-                            <Label htmlFor="category">Category *</Label>
-                            <Select
-                              value={newProduct.category}
-                              onValueChange={(value: 'baby' | 'pharmaceutical') => {
-                                setNewProduct({
-                                  ...newProduct,
-                                  category: value,
-                                  categoryId: value === 'baby' ? 'baby-clothing-accessories' : 'cold-cough-allergy',
-                                });
-                              }}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="baby">Baby Products</SelectItem>
-                                <SelectItem value="pharmaceutical">Pharmaceutical</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          <div className="grid gap-2">
-                            <Label htmlFor="subcategory">Subcategory *</Label>
-                            <Select
-                              value={newProduct.categoryId}
-                              onValueChange={(value) => setNewProduct({ ...newProduct, categoryId: value })}
-                            >
-                              <SelectTrigger>
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {newProduct.category === 'baby' ? (
-                                  <>
-                                    <SelectItem value="apparel">Apparel</SelectItem>
-                                    <SelectItem value="accessories">Accessories</SelectItem>
-                                    <SelectItem value="baby-feeding">Feeding</SelectItem>
-                                    <SelectItem value="baby-toys-entertainment">Toys & Entertainment</SelectItem>
-                                  </>
-                                ) : (
-                                  <>
-                                    <SelectItem value="cold-cough-allergy-sinus">Cold, Cough, Allergy & Sinus</SelectItem>
-                                    <SelectItem value="rubs-ointments">Rubs & Ointments</SelectItem>
-                                    <SelectItem value="medicine-eye-care-first-aid">Medicine, Eye Care & First Aid</SelectItem>
-                                    <SelectItem value="condom-accessories">Condom & Accessories</SelectItem>
-                                    <SelectItem value="energy-tabs-vitamins">Energy Tabs & Vitamins</SelectItem>
-                                    <SelectItem value="dental-care">Dental Care</SelectItem>
-                                    <SelectItem value="feminine-care">Feminine Care</SelectItem>
-                                    <SelectItem value="pest-control-repellant">Pest Control & Repellant</SelectItem>
-                                    <SelectItem value="stomach-meds">Stomach Meds</SelectItem>
-                                    <SelectItem value="otc-medicines">OTC Medicines</SelectItem>
-                                    <SelectItem value="lip-care">Lip Care</SelectItem>
-                                  </>
-                                )}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="grid gap-2">
-                            <Label htmlFor="price">Sell Price ($) *</Label>
-                            <Input
-                              id="price"
-                              type="number"
-                              step="0.01"
-                              value={newProduct.price}
-                              onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
-                              placeholder="0.00"
-                            />
-                          </div>
-
-                          <div className="grid gap-2">
-                            <Label htmlFor="costPrice">Cost Price ($)</Label>
-                            <Input
-                              id="costPrice"
-                              type="number"
-                              step="0.01"
-                              value={newProduct.costPrice}
-                              onChange={(e) => setNewProduct({ ...newProduct, costPrice: e.target.value })}
-                              placeholder="0.00"
-                            />
-                            <p className="text-xs text-gray-500">For profit tracking</p>
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-4">
-                          <div className="grid gap-2">
-                            <Label htmlFor="stockCount">Stock Quantity</Label>
-                            <Input
-                              id="stockCount"
-                              type="number"
-                              value={newProduct.stockCount}
-                              onChange={(e) => setNewProduct({ ...newProduct, stockCount: e.target.value })}
-                              placeholder="0"
-                            />
-                          </div>
-
-                          <div className="grid gap-2">
-                            <Label htmlFor="soldCount">Units Sold</Label>
-                            <Input
-                              id="soldCount"
-                              type="number"
-                              value={newProduct.soldCount}
-                              onChange={(e) => setNewProduct({ ...newProduct, soldCount: e.target.value })}
-                              placeholder="0"
-                            />
-                          </div>
-
-                          <div className="grid gap-2">
-                            <Label htmlFor="rating">Rating</Label>
-                            <Input
-                              id="rating"
-                              type="number"
-                              step="0.1"
-                              min="0"
-                              max="5"
-                              value={newProduct.rating}
-                              onChange={(e) => setNewProduct({ ...newProduct, rating: e.target.value })}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid gap-2">
-                          <Label htmlFor="reviews">Review Count</Label>
-                          <Input
-                            id="reviews"
-                            type="number"
-                            value={newProduct.reviewCount}
-                            onChange={(e) => setNewProduct({ ...newProduct, reviewCount: e.target.value })}
-                          />
-                        </div>
-
-                        <div className="grid gap-2">
-                          <Label>Product Image</Label>
-                          <div className="flex gap-2 mb-2">
-                            <Button
-                              type="button"
-                              variant={imageInputType === 'url' ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => setImageInputType('url')}
-                              className={imageInputType === 'url' ? 'bg-[#003366]' : ''}
-                            >
-                              <Link2 className="h-4 w-4 mr-2" />
-                              URL
-                            </Button>
-                            <Button
-                              type="button"
-                              variant={imageInputType === 'file' ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => setImageInputType('file')}
-                              className={imageInputType === 'file' ? 'bg-[#003366]' : ''}
-                            >
-                              <Image className="h-4 w-4 mr-2" />
-                              Upload File
-                            </Button>
-                          </div>
-                          {imageInputType === 'url' ? (
-                            <>
-                              <Textarea
-                                id="image"
-                                value={newProduct.image}
-                                onChange={(e) => setNewProduct({ ...newProduct, image: e.target.value })}
-                                placeholder="Enter image URL or leave blank for placeholder"
-                                rows={2}
-                              />
-                              <p className="text-sm text-gray-500">Use Unsplash URLs or figma:asset paths</p>
-                            </>
-                          ) : (
-                            <>
-                              <Input
-                                id="image-file"
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => handleImageUpload(e, false)}
-                                className="cursor-pointer"
-                              />
-                              <p className="text-sm text-gray-500">Upload an image from your device</p>
-                            </>
-                          )}
-                          {newProduct.image && (
-                            <div className="mt-2">
-                              <p className="text-sm text-gray-500 mb-2">Preview:</p>
-                              <img 
-                                src={newProduct.image} 
-                                alt="Preview" 
-                                className="h-20 w-20 object-cover rounded border"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                              />
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="grid gap-2">
-                          <Label htmlFor="badge">Badge (Optional)</Label>
-                          <Select
-                            value={newProduct.badge}
-                            onValueChange={(value) => setNewProduct({ ...newProduct, badge: value as any })}
-                          >
-                            <SelectTrigger>
-                              <SelectValue placeholder="No badge" />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="none">No Badge</SelectItem>
-                              <SelectItem value="Best Seller">Best Seller</SelectItem>
-                              <SelectItem value="Top Rated">Top Rated</SelectItem>
-                              <SelectItem value="New">New</SelectItem>
-                              <SelectItem value="Standard">Standard</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="checkbox"
-                            id="inStock"
-                            checked={newProduct.inStock}
-                            onChange={(e) => setNewProduct({ ...newProduct, inStock: e.target.checked })}
-                            className="h-4 w-4"
-                          />
-                          <Label htmlFor="inStock" className="cursor-pointer">In Stock</Label>
-                        </div>
-                      </div>
-
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                          Cancel
-                        </Button>
-                        <Button onClick={handleAddProduct} className="bg-[#DC143C] hover:bg-[#B01030]">
+                      <DialogTrigger asChild>
+                        <Button className="bg-[#DC143C] hover:bg-[#B01030]">
+                          <Plus className="h-4 w-4 mr-2" />
                           Add Product
                         </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
-
-                  {/* Edit Product Dialog */}
-                  <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>Edit Product</DialogTitle>
-                      </DialogHeader>
-                      {editingProduct && (
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Add New Product</DialogTitle>
+                        </DialogHeader>
                         <div className="grid gap-4 py-4">
                           <div className="grid gap-2">
-                            <Label htmlFor="edit-name">Product Name *</Label>
+                            <Label htmlFor="name">Product Name *</Label>
                             <Input
-                              id="edit-name"
-                              value={editingProduct.name}
-                              onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
+                              id="name"
+                              value={newProduct.name}
+                              onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
                               placeholder="Enter product name"
+                            />
+                          </div>
+
+                          <div className="grid gap-2">
+                            <Label htmlFor="description">Description</Label>
+                            <Textarea
+                              id="description"
+                              value={newProduct.description}
+                              onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
+                              placeholder="Enter product description"
+                              rows={3}
                             />
                           </div>
 
                           <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
-                              <Label htmlFor="edit-category">Category *</Label>
+                              <Label htmlFor="category">Category *</Label>
                               <Select
-                                value={editingProduct.category}
+                                value={newProduct.category}
                                 onValueChange={(value: 'baby' | 'pharmaceutical') => {
-                                  setEditingProduct({
-                                    ...editingProduct,
+                                  setNewProduct({
+                                    ...newProduct,
                                     category: value,
                                     categoryId: value === 'baby' ? 'baby-clothing-accessories' : 'cold-cough-allergy',
                                   });
@@ -1436,16 +1182,16 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                             </div>
 
                             <div className="grid gap-2">
-                              <Label htmlFor="edit-subcategory">Subcategory *</Label>
+                              <Label htmlFor="subcategory">Subcategory *</Label>
                               <Select
-                                value={editingProduct.categoryId}
-                                onValueChange={(value) => setEditingProduct({ ...editingProduct, categoryId: value })}
+                                value={newProduct.categoryId}
+                                onValueChange={(value) => setNewProduct({ ...newProduct, categoryId: value })}
                               >
                                 <SelectTrigger>
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {editingProduct.category === 'baby' ? (
+                                  {newProduct.category === 'baby' ? (
                                     <>
                                       <SelectItem value="apparel">Apparel</SelectItem>
                                       <SelectItem value="accessories">Accessories</SelectItem>
@@ -1456,7 +1202,9 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                                     <>
                                       <SelectItem value="cold-cough-allergy-sinus">Cold, Cough, Allergy & Sinus</SelectItem>
                                       <SelectItem value="rubs-ointments">Rubs & Ointments</SelectItem>
-                                      <SelectItem value="medicine-eye-care-first-aid">Medicine, Eye Care & First Aid</SelectItem>
+                                      <SelectItem value="medicine">Medicine</SelectItem>
+                                      <SelectItem value="eye-care">Eye Care</SelectItem>
+                                      <SelectItem value="first-aid">First Aid</SelectItem>
                                       <SelectItem value="condom-accessories">Condom & Accessories</SelectItem>
                                       <SelectItem value="energy-tabs-vitamins">Energy Tabs & Vitamins</SelectItem>
                                       <SelectItem value="dental-care">Dental Care</SelectItem>
@@ -1472,41 +1220,78 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-4">
+                          <div className="grid grid-cols-2 gap-4">
                             <div className="grid gap-2">
-                              <Label htmlFor="edit-price">Price ($) *</Label>
+                              <Label htmlFor="price">Sell Price ($) *</Label>
                               <Input
-                                id="edit-price"
+                                id="price"
                                 type="number"
                                 step="0.01"
-                                value={editingProduct.price}
-                                onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.target.value) || 0 })}
+                                value={newProduct.price}
+                                onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
                                 placeholder="0.00"
                               />
                             </div>
 
                             <div className="grid gap-2">
-                              <Label htmlFor="edit-rating">Rating</Label>
+                              <Label htmlFor="costPrice">Cost Price ($)</Label>
                               <Input
-                                id="edit-rating"
+                                id="costPrice"
                                 type="number"
-                                step="0.1"
-                                min="0"
-                                max="5"
-                                value={editingProduct.rating}
-                                onChange={(e) => setEditingProduct({ ...editingProduct, rating: parseFloat(e.target.value) || 0 })}
+                                step="0.01"
+                                value={newProduct.costPrice}
+                                onChange={(e) => setNewProduct({ ...newProduct, costPrice: e.target.value })}
+                                placeholder="0.00"
+                              />
+                              <p className="text-xs text-gray-500">For profit tracking</p>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-4">
+                            <div className="grid gap-2">
+                              <Label htmlFor="stockCount">Stock Quantity</Label>
+                              <Input
+                                id="stockCount"
+                                type="number"
+                                value={newProduct.stockCount}
+                                onChange={(e) => setNewProduct({ ...newProduct, stockCount: e.target.value })}
+                                placeholder="0"
                               />
                             </div>
 
                             <div className="grid gap-2">
-                              <Label htmlFor="edit-reviews">Reviews</Label>
+                              <Label htmlFor="soldCount">Units Sold</Label>
                               <Input
-                                id="edit-reviews"
+                                id="soldCount"
                                 type="number"
-                                value={editingProduct.reviewCount}
-                                onChange={(e) => setEditingProduct({ ...editingProduct, reviewCount: parseInt(e.target.value) || 0 })}
+                                value={newProduct.soldCount}
+                                onChange={(e) => setNewProduct({ ...newProduct, soldCount: e.target.value })}
+                                placeholder="0"
                               />
                             </div>
+
+                            <div className="grid gap-2">
+                              <Label htmlFor="rating">Rating</Label>
+                              <Input
+                                id="rating"
+                                type="number"
+                                step="0.1"
+                                min="0"
+                                max="5"
+                                value={newProduct.rating}
+                                onChange={(e) => setNewProduct({ ...newProduct, rating: e.target.value })}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="grid gap-2">
+                            <Label htmlFor="reviews">Review Count</Label>
+                            <Input
+                              id="reviews"
+                              type="number"
+                              value={newProduct.reviewCount}
+                              onChange={(e) => setNewProduct({ ...newProduct, reviewCount: e.target.value })}
+                            />
                           </div>
 
                           <div className="grid gap-2">
@@ -1514,31 +1299,31 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                             <div className="flex gap-2 mb-2">
                               <Button
                                 type="button"
-                                variant={editImageInputType === 'url' ? 'default' : 'outline'}
+                                variant={imageInputType === 'url' ? 'default' : 'outline'}
                                 size="sm"
-                                onClick={() => setEditImageInputType('url')}
-                                className={editImageInputType === 'url' ? 'bg-[#003366]' : ''}
+                                onClick={() => setImageInputType('url')}
+                                className={imageInputType === 'url' ? 'bg-[#003366]' : ''}
                               >
                                 <Link2 className="h-4 w-4 mr-2" />
                                 URL
                               </Button>
                               <Button
                                 type="button"
-                                variant={editImageInputType === 'file' ? 'default' : 'outline'}
+                                variant={imageInputType === 'file' ? 'default' : 'outline'}
                                 size="sm"
-                                onClick={() => setEditImageInputType('file')}
-                                className={editImageInputType === 'file' ? 'bg-[#003366]' : ''}
+                                onClick={() => setImageInputType('file')}
+                                className={imageInputType === 'file' ? 'bg-[#003366]' : ''}
                               >
                                 <Image className="h-4 w-4 mr-2" />
                                 Upload File
                               </Button>
                             </div>
-                            {editImageInputType === 'url' ? (
+                            {imageInputType === 'url' ? (
                               <>
                                 <Textarea
-                                  id="edit-image"
-                                  value={editingProduct.image}
-                                  onChange={(e) => setEditingProduct({ ...editingProduct, image: e.target.value })}
+                                  id="image"
+                                  value={newProduct.image}
+                                  onChange={(e) => setNewProduct({ ...newProduct, image: e.target.value })}
                                   placeholder="Enter image URL or leave blank for placeholder"
                                   rows={2}
                                 />
@@ -1547,21 +1332,21 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                             ) : (
                               <>
                                 <Input
-                                  id="edit-image-file"
+                                  id="image-file"
                                   type="file"
                                   accept="image/*"
-                                  onChange={(e) => handleImageUpload(e, true)}
+                                  onChange={(e) => handleImageUpload(e, false)}
                                   className="cursor-pointer"
                                 />
                                 <p className="text-sm text-gray-500">Upload an image from your device</p>
                               </>
                             )}
-                            {editingProduct.image && (
+                            {newProduct.image && (
                               <div className="mt-2">
                                 <p className="text-sm text-gray-500 mb-2">Preview:</p>
-                                <img 
-                                  src={editingProduct.image} 
-                                  alt="Preview" 
+                                <img
+                                  src={newProduct.image}
+                                  alt="Preview"
                                   className="h-20 w-20 object-cover rounded border"
                                   onError={(e) => {
                                     (e.target as HTMLImageElement).style.display = 'none';
@@ -1572,10 +1357,10 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                           </div>
 
                           <div className="grid gap-2">
-                            <Label htmlFor="edit-badge">Badge (Optional)</Label>
+                            <Label htmlFor="badge">Badge (Optional)</Label>
                             <Select
-                              value={editingProduct.badge || 'none'}
-                              onValueChange={(value) => setEditingProduct({ ...editingProduct, badge: value === 'none' ? undefined : value as any })}
+                              value={newProduct.badge}
+                              onValueChange={(value) => setNewProduct({ ...newProduct, badge: value as any })}
                             >
                               <SelectTrigger>
                                 <SelectValue placeholder="No badge" />
@@ -1593,29 +1378,250 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                           <div className="flex items-center space-x-2">
                             <input
                               type="checkbox"
-                              id="edit-inStock"
-                              checked={editingProduct.inStock}
-                              onChange={(e) => setEditingProduct({ ...editingProduct, inStock: e.target.checked })}
+                              id="inStock"
+                              checked={newProduct.inStock}
+                              onChange={(e) => setNewProduct({ ...newProduct, inStock: e.target.checked })}
                               className="h-4 w-4"
                             />
-                            <Label htmlFor="edit-inStock" className="cursor-pointer">In Stock</Label>
+                            <Label htmlFor="inStock" className="cursor-pointer">In Stock</Label>
                           </div>
                         </div>
-                      )}
 
-                      <div className="flex justify-end gap-2">
-                        <Button variant="outline" onClick={() => {
-                          setIsEditDialogOpen(false);
-                          setEditingProduct(null);
-                        }}>
-                          Cancel
-                        </Button>
-                        <Button onClick={handleEditProduct} className="bg-[#003366] hover:bg-[#004488]">
-                          Update Product
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
+                            Cancel
+                          </Button>
+                          <Button onClick={handleAddProduct} className="bg-[#DC143C] hover:bg-[#B01030]">
+                            Add Product
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* Edit Product Dialog */}
+                    <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+                      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <DialogHeader>
+                          <DialogTitle>Edit Product</DialogTitle>
+                        </DialogHeader>
+                        {editingProduct && (
+                          <div className="grid gap-4 py-4">
+                            <div className="grid gap-2">
+                              <Label htmlFor="edit-name">Product Name *</Label>
+                              <Input
+                                id="edit-name"
+                                value={editingProduct.name}
+                                onChange={(e) => setEditingProduct({ ...editingProduct, name: e.target.value })}
+                                placeholder="Enter product name"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="grid gap-2">
+                                <Label htmlFor="edit-category">Category *</Label>
+                                <Select
+                                  value={editingProduct.category}
+                                  onValueChange={(value: 'baby' | 'pharmaceutical') => {
+                                    setEditingProduct({
+                                      ...editingProduct,
+                                      category: value,
+                                      categoryId: value === 'baby' ? 'baby-clothing-accessories' : 'cold-cough-allergy',
+                                    });
+                                  }}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="baby">Baby Products</SelectItem>
+                                    <SelectItem value="pharmaceutical">Pharmaceutical</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              <div className="grid gap-2">
+                                <Label htmlFor="edit-subcategory">Subcategory *</Label>
+                                <Select
+                                  value={editingProduct.categoryId}
+                                  onValueChange={(value) => setEditingProduct({ ...editingProduct, categoryId: value })}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {editingProduct.category === 'baby' ? (
+                                      <>
+                                        <SelectItem value="apparel">Apparel</SelectItem>
+                                        <SelectItem value="accessories">Accessories</SelectItem>
+                                        <SelectItem value="baby-feeding">Feeding</SelectItem>
+                                        <SelectItem value="baby-toys-entertainment">Toys & Entertainment</SelectItem>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <SelectItem value="cold-cough-allergy-sinus">Cold, Cough, Allergy & Sinus</SelectItem>
+                                        <SelectItem value="rubs-ointments">Rubs & Ointments</SelectItem>
+                                        <SelectItem value="medicine">Medicine</SelectItem>
+                                        <SelectItem value="eye-care">Eye Care</SelectItem>
+                                        <SelectItem value="first-aid">First Aid</SelectItem>
+                                        <SelectItem value="condom-accessories">Condom & Accessories</SelectItem>
+                                        <SelectItem value="energy-tabs-vitamins">Energy Tabs & Vitamins</SelectItem>
+                                        <SelectItem value="dental-care">Dental Care</SelectItem>
+                                        <SelectItem value="feminine-care">Feminine Care</SelectItem>
+                                        <SelectItem value="pest-control-repellant">Pest Control & Repellant</SelectItem>
+                                        <SelectItem value="stomach-meds">Stomach Meds</SelectItem>
+                                        <SelectItem value="otc-medicines">OTC Medicines</SelectItem>
+                                        <SelectItem value="lip-care">Lip Care</SelectItem>
+                                      </>
+                                    )}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-4">
+                              <div className="grid gap-2">
+                                <Label htmlFor="edit-price">Price ($) *</Label>
+                                <Input
+                                  id="edit-price"
+                                  type="number"
+                                  step="0.01"
+                                  value={editingProduct.price}
+                                  onChange={(e) => setEditingProduct({ ...editingProduct, price: parseFloat(e.target.value) || 0 })}
+                                  placeholder="0.00"
+                                />
+                              </div>
+
+                              <div className="grid gap-2">
+                                <Label htmlFor="edit-rating">Rating</Label>
+                                <Input
+                                  id="edit-rating"
+                                  type="number"
+                                  step="0.1"
+                                  min="0"
+                                  max="5"
+                                  value={editingProduct.rating}
+                                  onChange={(e) => setEditingProduct({ ...editingProduct, rating: parseFloat(e.target.value) || 0 })}
+                                />
+                              </div>
+
+                              <div className="grid gap-2">
+                                <Label htmlFor="edit-reviews">Reviews</Label>
+                                <Input
+                                  id="edit-reviews"
+                                  type="number"
+                                  value={editingProduct.reviewCount}
+                                  onChange={(e) => setEditingProduct({ ...editingProduct, reviewCount: parseInt(e.target.value) || 0 })}
+                                />
+                              </div>
+                            </div>
+
+                            <div className="grid gap-2">
+                              <Label>Product Image</Label>
+                              <div className="flex gap-2 mb-2">
+                                <Button
+                                  type="button"
+                                  variant={editImageInputType === 'url' ? 'default' : 'outline'}
+                                  size="sm"
+                                  onClick={() => setEditImageInputType('url')}
+                                  className={editImageInputType === 'url' ? 'bg-[#003366]' : ''}
+                                >
+                                  <Link2 className="h-4 w-4 mr-2" />
+                                  URL
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant={editImageInputType === 'file' ? 'default' : 'outline'}
+                                  size="sm"
+                                  onClick={() => setEditImageInputType('file')}
+                                  className={editImageInputType === 'file' ? 'bg-[#003366]' : ''}
+                                >
+                                  <Image className="h-4 w-4 mr-2" />
+                                  Upload File
+                                </Button>
+                              </div>
+                              {editImageInputType === 'url' ? (
+                                <>
+                                  <Textarea
+                                    id="edit-image"
+                                    value={editingProduct.image}
+                                    onChange={(e) => setEditingProduct({ ...editingProduct, image: e.target.value })}
+                                    placeholder="Enter image URL or leave blank for placeholder"
+                                    rows={2}
+                                  />
+                                  <p className="text-sm text-gray-500">Use Unsplash URLs or figma:asset paths</p>
+                                </>
+                              ) : (
+                                <>
+                                  <Input
+                                    id="edit-image-file"
+                                    type="file"
+                                    accept="image/*"
+                                    onChange={(e) => handleImageUpload(e, true)}
+                                    className="cursor-pointer"
+                                  />
+                                  <p className="text-sm text-gray-500">Upload an image from your device</p>
+                                </>
+                              )}
+                              {editingProduct.image && (
+                                <div className="mt-2">
+                                  <p className="text-sm text-gray-500 mb-2">Preview:</p>
+                                  <img
+                                    src={editingProduct.image}
+                                    alt="Preview"
+                                    className="h-20 w-20 object-cover rounded border"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none';
+                                    }}
+                                  />
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="grid gap-2">
+                              <Label htmlFor="edit-badge">Badge (Optional)</Label>
+                              <Select
+                                value={editingProduct.badge || 'none'}
+                                onValueChange={(value) => setEditingProduct({ ...editingProduct, badge: value === 'none' ? undefined : value as any })}
+                              >
+                                <SelectTrigger>
+                                  <SelectValue placeholder="No badge" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="none">No Badge</SelectItem>
+                                  <SelectItem value="Best Seller">Best Seller</SelectItem>
+                                  <SelectItem value="Top Rated">Top Rated</SelectItem>
+                                  <SelectItem value="New">New</SelectItem>
+                                  <SelectItem value="Standard">Standard</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="flex items-center space-x-2">
+                              <input
+                                type="checkbox"
+                                id="edit-inStock"
+                                checked={editingProduct.inStock}
+                                onChange={(e) => setEditingProduct({ ...editingProduct, inStock: e.target.checked })}
+                                className="h-4 w-4"
+                              />
+                              <Label htmlFor="edit-inStock" className="cursor-pointer">In Stock</Label>
+                            </div>
+                          </div>
+                        )}
+
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => {
+                            setIsEditDialogOpen(false);
+                            setEditingProduct(null);
+                          }}>
+                            Cancel
+                          </Button>
+                          <Button onClick={handleEditProduct} className="bg-[#003366] hover:bg-[#004488]">
+                            Update Product
+                          </Button>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
 
                   {/* Search and Filter Bar */}
@@ -1674,74 +1680,74 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                         </TableRow>
                       ) : (
                         filteredProducts.map((product) => (
-                        <TableRow key={product.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              {product.image && (
-                                <img
-                                  src={product.image}
-                                  alt={product.name}
-                                  className="w-12 h-12 object-cover rounded"
-                                />
-                              )}
-                              <div>
-                                <div className="font-medium">{product.name}</div>
-                                <div className="text-sm text-gray-500">
-                                  {product.rating}★ ({product.reviewCount})
+                          <TableRow key={product.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                {product.image && (
+                                  <img
+                                    src={product.image}
+                                    alt={product.name}
+                                    className="w-12 h-12 object-cover rounded"
+                                  />
+                                )}
+                                <div>
+                                  <div className="font-medium">{product.name}</div>
+                                  <div className="text-sm text-gray-500">
+                                    {product.rating}★ ({product.reviewCount})
+                                  </div>
                                 </div>
                               </div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <div className="text-sm">
-                              <div className="capitalize">{product.category}</div>
-                              <div className="text-gray-500">{product.categoryId || 'N/A'}</div>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {product.originalPrice ? (
-                              <div>
-                                <div className="line-through text-gray-500 text-sm">${product.originalPrice.toFixed(2)}</div>
-                                <div className="text-[#DC143C]">${product.price.toFixed(2)}</div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="text-sm">
+                                <div className="capitalize">{product.category}</div>
+                                <div className="text-gray-500">{product.categoryId || 'N/A'}</div>
                               </div>
-                            ) : (
-                              <div>${product.price.toFixed(2)}</div>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant={product.inStock ? "default" : "secondary"}>
-                              {product.inStock ? 'In Stock' : 'Out of Stock'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {product.badge && (
-                              <Badge variant="outline" className="bg-[#FFF3CD]">
-                                {product.badge}
+                            </TableCell>
+                            <TableCell>
+                              {product.originalPrice ? (
+                                <div>
+                                  <div className="line-through text-gray-500 text-sm">${product.originalPrice.toFixed(2)}</div>
+                                  <div className="text-[#DC143C]">${product.price.toFixed(2)}</div>
+                                </div>
+                              ) : (
+                                <div>${product.price.toFixed(2)}</div>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant={product.inStock ? "default" : "secondary"}>
+                                {product.inStock ? 'In Stock' : 'Out of Stock'}
                               </Badge>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            <div className="flex justify-end gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleOpenEditDialog(product)}
-                                title="Edit product"
-                              >
-                                <Edit className="h-4 w-4 text-blue-500" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteProduct(product)}
-                                title="Delete product"
-                              >
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      ))
+                            </TableCell>
+                            <TableCell>
+                              {product.badge && (
+                                <Badge variant="outline" className="bg-[#FFF3CD]">
+                                  {product.badge}
+                                </Badge>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right">
+                              <div className="flex justify-end gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleOpenEditDialog(product)}
+                                  title="Edit product"
+                                >
+                                  <Edit className="h-4 w-4 text-blue-500" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleDeleteProduct(product)}
+                                  title="Delete product"
+                                >
+                                  <Trash2 className="h-4 w-4 text-red-500" />
+                                </Button>
+                              </div>
+                            </TableCell>
+                          </TableRow>
+                        ))
                       )}
                     </TableBody>
                   </Table>
@@ -1800,67 +1806,67 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                     </div>
                   ) : (
                     filteredProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4"
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        {product.image && (
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className="w-12 h-12 object-cover rounded"
-                          />
-                        )}
-                        <div>
-                          <div className="font-medium">{product.name}</div>
-                          <div className="text-sm text-gray-500 capitalize">{product.category}</div>
+                      <div
+                        key={product.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4"
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          {product.image && (
+                            <img
+                              src={product.image}
+                              alt={product.name}
+                              className="w-12 h-12 object-cover rounded"
+                            />
+                          )}
+                          <div>
+                            <div className="font-medium">{product.name}</div>
+                            <div className="text-sm text-gray-500 capitalize">{product.category}</div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Label className="text-sm text-gray-600 whitespace-nowrap">Badge:</Label>
+                          <Select
+                            value={product.badge || 'none'}
+                            onValueChange={(value) => {
+                              // TODO: Implement badge update
+                              console.log('Badge update:', product.id, value);
+                            }}
+                          >
+                            <SelectTrigger className="w-40">
+                              <SelectValue placeholder="No badge" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">No Badge</SelectItem>
+                              <SelectItem value="Best Seller">
+                                <div className="flex items-center gap-2">
+                                  <TrendingUp className="h-4 w-4" />
+                                  Best Seller
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="Top Rated">
+                                <div className="flex items-center gap-2">
+                                  <Tag className="h-4 w-4" />
+                                  Top Rated
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="New">
+                                <div className="flex items-center gap-2">
+                                  <Package className="h-4 w-4" />
+                                  New
+                                </div>
+                              </SelectItem>
+                              <SelectItem value="Standard">
+                                <div className="flex items-center gap-2">
+                                  <Package className="h-4 w-4" />
+                                  Standard
+                                </div>
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-2">
-                        <Label className="text-sm text-gray-600 whitespace-nowrap">Badge:</Label>
-                        <Select
-                          value={product.badge || 'none'}
-                          onValueChange={(value) => {
-                            // TODO: Implement badge update
-                            console.log('Badge update:', product.id, value);
-                          }}
-                        >
-                          <SelectTrigger className="w-40">
-                            <SelectValue placeholder="No badge" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="none">No Badge</SelectItem>
-                            <SelectItem value="Best Seller">
-                              <div className="flex items-center gap-2">
-                                <TrendingUp className="h-4 w-4" />
-                                Best Seller
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="Top Rated">
-                              <div className="flex items-center gap-2">
-                                <Tag className="h-4 w-4" />
-                                Top Rated
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="New">
-                              <div className="flex items-center gap-2">
-                                <Package className="h-4 w-4" />
-                                New
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="Standard">
-                              <div className="flex items-center gap-2">
-                                <Package className="h-4 w-4" />
-                                Standard
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  ))
+                    ))
                   )}
                 </div>
               </CardContent>
@@ -1917,112 +1923,112 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                     </div>
                   ) : (
                     filteredProducts.map((product) => (
-                    <div
-                      key={product.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4"
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        {product.image && (
-                          <img
-                            src={product.image}
-                            alt={product.name}
-                            className="w-12 h-12 object-cover rounded"
-                          />
-                        )}
-                        <div>
-                          <div className="font-medium">{product.name}</div>
-                          <div className="text-sm">
-                            {product.originalPrice ? (
-                              <div className="flex items-center gap-2">
-                                <span className="line-through text-gray-500">${product.originalPrice.toFixed(2)}</span>
-                                <span className="text-[#DC143C]">${product.price.toFixed(2)}</span>
-                                <Badge className="bg-green-500">
-                                  {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
-                                </Badge>
-                              </div>
-                            ) : (
-                              <span className="text-gray-600">${product.price.toFixed(2)}</span>
-                            )}
+                      <div
+                        key={product.id}
+                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4"
+                      >
+                        <div className="flex items-center gap-3 flex-1">
+                          {product.image && (
+                            <img
+                              src={product.image}
+                              alt={product.name}
+                              className="w-12 h-12 object-cover rounded"
+                            />
+                          )}
+                          <div>
+                            <div className="font-medium">{product.name}</div>
+                            <div className="text-sm">
+                              {product.originalPrice ? (
+                                <div className="flex items-center gap-2">
+                                  <span className="line-through text-gray-500">${product.originalPrice.toFixed(2)}</span>
+                                  <span className="text-[#DC143C]">${product.price.toFixed(2)}</span>
+                                  <Badge className="bg-green-500">
+                                    {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
+                                  </Badge>
+                                </div>
+                              ) : (
+                                <span className="text-gray-600">${product.price.toFixed(2)}</span>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="flex gap-2">
-                        {product.originalPrice ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              onUpdateProduct(product.id, {
-                                price: product.originalPrice,
-                                originalPrice: undefined,
-                              });
-                              toast.success('Sale removed');
-                            }}
-                          >
-                            Remove Sale
-                          </Button>
-                        ) : (
-                          <Dialog open={isSaleDialogOpen && saleProduct?.id === product.id} onOpenChange={(open) => {
-                            setIsSaleDialogOpen(open);
-                            if (!open) setSaleProduct(null);
-                          }}>
-                            <DialogTrigger asChild>
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => setSaleProduct(product)}
-                              >
-                                <Percent className="h-4 w-4 mr-2" />
-                                Create Sale
-                              </Button>
-                            </DialogTrigger>
-                            <DialogContent>
-                              <DialogHeader>
-                                <DialogTitle>Create Sale</DialogTitle>
-                              </DialogHeader>
-                              <div className="space-y-4 py-4">
-                                <div>
-                                  <p className="text-sm text-gray-600 mb-2">Product: {product.name}</p>
-                                  <p className="text-sm text-gray-600">Current Price: ${product.price.toFixed(2)}</p>
-                                </div>
-                                <div className="grid gap-2">
-                                  <Label htmlFor="discount">Discount Percentage</Label>
-                                  <div className="flex gap-2">
-                                    <Input
-                                      id="discount"
-                                      type="number"
-                                      min="1"
-                                      max="99"
-                                      value={discountPercent}
-                                      onChange={(e) => setDiscountPercent(e.target.value)}
-                                    />
-                                    <span className="flex items-center text-gray-600">%</span>
+                        <div className="flex gap-2">
+                          {product.originalPrice ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                onUpdateProduct(product.id, {
+                                  price: product.originalPrice,
+                                  originalPrice: undefined,
+                                });
+                                toast.success('Sale removed');
+                              }}
+                            >
+                              Remove Sale
+                            </Button>
+                          ) : (
+                            <Dialog open={isSaleDialogOpen && saleProduct?.id === product.id} onOpenChange={(open) => {
+                              setIsSaleDialogOpen(open);
+                              if (!open) setSaleProduct(null);
+                            }}>
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setSaleProduct(product)}
+                                >
+                                  <Percent className="h-4 w-4 mr-2" />
+                                  Create Sale
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Create Sale</DialogTitle>
+                                </DialogHeader>
+                                <div className="space-y-4 py-4">
+                                  <div>
+                                    <p className="text-sm text-gray-600 mb-2">Product: {product.name}</p>
+                                    <p className="text-sm text-gray-600">Current Price: ${product.price.toFixed(2)}</p>
                                   </div>
-                                  {discountPercent && (
-                                    <p className="text-sm text-[#DC143C]">
-                                      New Price: ${(product.price * (1 - parseFloat(discountPercent) / 100)).toFixed(2)}
-                                    </p>
-                                  )}
+                                  <div className="grid gap-2">
+                                    <Label htmlFor="discount">Discount Percentage</Label>
+                                    <div className="flex gap-2">
+                                      <Input
+                                        id="discount"
+                                        type="number"
+                                        min="1"
+                                        max="99"
+                                        value={discountPercent}
+                                        onChange={(e) => setDiscountPercent(e.target.value)}
+                                      />
+                                      <span className="flex items-center text-gray-600">%</span>
+                                    </div>
+                                    {discountPercent && (
+                                      <p className="text-sm text-[#DC143C]">
+                                        New Price: ${(product.price * (1 - parseFloat(discountPercent) / 100)).toFixed(2)}
+                                      </p>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="flex justify-end gap-2">
-                                <Button variant="outline" onClick={() => {
-                                  setIsSaleDialogOpen(false);
-                                  setSaleProduct(null);
-                                }}>
-                                  Cancel
-                                </Button>
-                                <Button onClick={() => onCreateSale(product.id, 0)} className="bg-[#DC143C] hover:bg-[#B01030]">
-                                  Apply Sale
-                                </Button>
-                              </div>
-                            </DialogContent>
-                          </Dialog>
-                        )}
+                                <div className="flex justify-end gap-2">
+                                  <Button variant="outline" onClick={() => {
+                                    setIsSaleDialogOpen(false);
+                                    setSaleProduct(null);
+                                  }}>
+                                    Cancel
+                                  </Button>
+                                  <Button onClick={() => onCreateSale(product.id, 0)} className="bg-[#DC143C] hover:bg-[#B01030]">
+                                    Apply Sale
+                                  </Button>
+                                </div>
+                              </DialogContent>
+                            </Dialog>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))
+                    ))
                   )}
                 </div>
               </CardContent>
@@ -2112,7 +2118,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                         <span className="font-medium">Valid categoryId values:</span>
                         <ul className="list-disc list-inside ml-4 mt-1 text-sm">
                           <li><strong>Baby:</strong> apparel, accessories</li>
-                          <li><strong>Pharmaceutical:</strong> cold-cough-allergy-sinus, rubs-ointments, medicine-eye-care-first-aid, condom-accessories, energy-tabs-vitamins, dental-care, feminine-care, pest-control-repellant, stomach-meds, otc-medicines, lip-care</li>
+                          <li><strong>Pharmaceutical:</strong> cold-cough-allergy-sinus, rubs-ointments, medicine, eye-care, first-aid, condom-accessories, energy-tabs-vitamins, dental-care, feminine-care, pest-control-repellant, stomach-meds, otc-medicines, lip-care</li>
                         </ul>
                       </div>
                       <div className="mt-3">
@@ -2303,8 +2309,8 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                                   <TableCell>
                                     {product.image ? (
                                       <div className="flex items-center gap-2">
-                                        <img 
-                                          src={product.image} 
+                                        <img
+                                          src={product.image}
                                           alt={product.name}
                                           className="w-12 h-12 object-cover rounded border"
                                           onError={(e) => {
@@ -2433,7 +2439,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                   {/* Delete Actions */}
                   <div className="space-y-4">
                     <h3 className="font-medium text-lg">Delete Operations</h3>
-                    
+
                     <div className="grid gap-4">
                       {/* Delete Baby Products */}
                       <div className="border rounded-lg p-4 hover:bg-gray-50 transition-colors">
@@ -2567,7 +2573,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                           className="bg-red-600 hover:bg-red-700"
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
-                          Yes, Delete {bulkDeleteAction === 'purge' ? 'All' : 
+                          Yes, Delete {bulkDeleteAction === 'purge' ? 'All' :
                             `${products.filter(p => bulkDeleteAction && p.category === bulkDeleteAction).length}`}
                         </Button>
                       </DialogFooter>
@@ -2619,7 +2625,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                     {/* DimePay Credentials */}
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">DimePay Credentials</h3>
-                      
+
                       <div className="space-y-2">
                         <Label htmlFor="merchant_id">Merchant ID *</Label>
                         <Input

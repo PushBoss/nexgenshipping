@@ -25,7 +25,9 @@ export const PRODUCT_CATEGORIES: ProductCategory[] = [
     categories: [
       { name: 'Cold, Cough, Allergy & Sinus', id: 'cold-cough-allergy-sinus' },
       { name: 'Rubs & Ointments', id: 'rubs-ointments' },
-      { name: 'Medicine, Eye Care & First Aid', id: 'medicine-eye-care-first-aid' },
+      { name: 'Medicine', id: 'medicine' },
+      { name: 'Eye Care', id: 'eye-care' },
+      { name: 'First Aid', id: 'first-aid' },
       { name: 'Condom & Accessories', id: 'condom-accessories' },
       { name: 'Energy Tabs & Vitamins', id: 'energy-tabs-vitamins' },
       { name: 'Dental Care', id: 'dental-care' },
@@ -91,9 +93,8 @@ export function CategoryBrowser({ onCategorySelect, onClose }: CategoryBrowserPr
                           {category.name}
                         </span>
                         <ChevronRight
-                          className={`h-4 w-4 text-gray-400 transition-transform ${
-                            expandedCategory === category.id ? 'rotate-90' : ''
-                          }`}
+                          className={`h-4 w-4 text-gray-400 transition-transform ${expandedCategory === category.id ? 'rotate-90' : ''
+                            }`}
                         />
                       </button>
                       {expandedCategory === category.id && (
