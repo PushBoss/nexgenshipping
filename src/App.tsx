@@ -77,6 +77,11 @@ function AppContent() {
   const [productsLoaded, setProductsLoaded] = useState(false);
   const [selectedCurrency, setSelectedCurrencyState] = useState<Currency>(getUserCurrency());
 
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalProducts, setTotalProducts] = useState(0);
+  const ITEMS_PER_PAGE = 20;
+
   // Handle currency change
   const handleCurrencyChange = (currency: Currency) => {
     setUserCurrency(currency);
@@ -128,18 +133,28 @@ function AppContent() {
     return () => subscription.unsubscribe();
   }, []);
 
-  // Load products on mount
+  // Load products when filters or pagination change
   useEffect(() => {
     const loadProducts = async () => {
       try {
-        const loadedProducts = await productsService.getAll();
+        setProductsLoaded(false);
+        const { products: loadedProducts, count } = await productsService.getProducts({
+          page: currentPage,
+          limit: ITEMS_PER_PAGE,
+          category: selectedCategory,
+          categoryId: selectedCategoryId || undefined,
+          subcategoryId: selectedSubcategoryId || undefined,
+          search: searchQuery
+        });
+
         setProducts(loadedProducts);
-          setProductsLoaded(true);
+        setTotalProducts(count);
+        setProductsLoaded(true);
       } catch (error: any) {
         console.error('Failed to load products:', error);
         // If it's a network error, show empty state but don't show error toast
-        if (error.message?.includes('Failed to fetch') || 
-            error.message?.includes('ERR_NAME_NOT_RESOLVED')) {
+        if (error.message?.includes('Failed to fetch') ||
+          error.message?.includes('ERR_NAME_NOT_RESOLVED')) {
           console.warn('⚠️ Network error: Cannot reach Supabase. App will work in offline mode.');
           setProducts([]); // Set empty products array
         }
@@ -147,8 +162,12 @@ function AppContent() {
       }
     };
 
-    loadProducts();
-  }, []);
+    const timeoutId = setTimeout(() => {
+      loadProducts();
+    }, 300); // Debounce to prevent rapid firing
+
+    return () => clearTimeout(timeoutId);
+  }, [currentPage, selectedCategory, selectedCategoryId, selectedSubcategoryId, searchQuery]);
 
   // Load cart and wishlist on login
   useEffect(() => {
@@ -165,7 +184,7 @@ function AppContent() {
             const wishlistData = await wishlistService.getAll(user.id);
             setWishlistItems(wishlistData);
           }
-    } catch (error) {
+        } catch (error) {
           console.error('Failed to load user data:', error);
         }
       };
@@ -194,6 +213,7 @@ function AppContent() {
     setSelectedCategoryId(null);
     setSelectedSubcategoryId(null);
     setSearchQuery('');
+    setCurrentPage(1); // Reset to first page
   };
 
   // Handle search
@@ -202,6 +222,7 @@ function AppContent() {
     setSelectedCategory('all');
     setSelectedCategoryId(null);
     setSelectedSubcategoryId(null);
+    setCurrentPage(1); // Reset to first page
   };
 
   // Handle product click
@@ -239,7 +260,7 @@ function AppContent() {
       // Reload cart to get updated data
       const user = await authService.getCurrentUser();
       if (user) {
-          const cartData = await cartService.getAll(user.id);
+        const cartData = await cartService.getAll(user.id);
         setCartItems(cartData);
       }
       toast.success('Item removed from cart');
@@ -256,7 +277,7 @@ function AppContent() {
       // Reload cart to get updated data
       const user = await authService.getCurrentUser();
       if (user) {
-          const cartData = await cartService.getAll(user.id);
+        const cartData = await cartService.getAll(user.id);
         setCartItems(cartData);
       }
     } catch (error) {
@@ -313,23 +334,8 @@ function AppContent() {
     navigate('/checkout');
   };
 
-  // Filter products based on search and category (memoized for performance)
-  const filteredProducts = useMemo(() => {
-    return products.filter(product => {
-      const matchesSearch = !searchQuery ||
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (product.description && product.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-        product.category.toLowerCase().includes(searchQuery.toLowerCase());
-
-      const matchesCategory = selectedCategory === 'all' ||
-        product.category === selectedCategory;
-
-      const matchesCategoryId = !selectedCategoryId || product.categoryId === selectedCategoryId;
-      const matchesSubcategoryId = !selectedSubcategoryId || product.subcategoryId === selectedSubcategoryId;
-
-      return matchesSearch && matchesCategory && matchesCategoryId && matchesSubcategoryId;
-    });
-  }, [products, searchQuery, selectedCategory, selectedCategoryId, selectedSubcategoryId]);
+  // No client-side filtering needed anymore
+  const filteredProducts = products;
 
   // Calculate cart total
   const cartTotal = cartItems.reduce((total, item) => {
@@ -374,6 +380,7 @@ function AppContent() {
                 setSelectedCategoryId(categoryId || null);
                 setSelectedSubcategoryId(subcategoryId || null);
                 setSearchQuery('');
+                setCurrentPage(1); // Reset to first page
               }}
             />
 
@@ -399,11 +406,11 @@ function AppContent() {
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <h2 className="text-[#003366] text-xl font-semibold">
-                    {searchQuery ? `Search Results for "${searchQuery}"` : 
-                     selectedCategoryId || selectedSubcategoryId ? 'Filtered Products' :
-                     selectedCategory === 'all' ? 'All Products' :
-                     selectedCategory === 'baby' ? 'Baby Products' :
-                     'Pharmaceutical Products'}
+                    {searchQuery ? `Search Results for "${searchQuery}"` :
+                      selectedCategoryId || selectedSubcategoryId ? 'Filtered Products' :
+                        selectedCategory === 'all' ? 'All Products' :
+                          selectedCategory === 'baby' ? 'Baby Products' :
+                            'Pharmaceutical Products'}
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
                     {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} found
@@ -442,6 +449,30 @@ function AppContent() {
                       selectedCurrency={selectedCurrency}
                     />
                   ))}
+                </div>
+              )}
+
+
+              {/* Pagination Controls */}
+              {totalProducts > ITEMS_PER_PAGE && (
+                <div className="flex justify-center items-center gap-2 mt-8 py-4 border-t border-gray-100">
+                  <button
+                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-sm text-gray-600">
+                    Page {currentPage} of {Math.ceil(totalProducts / ITEMS_PER_PAGE)}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(prev => prev + 1)}
+                    disabled={currentPage >= Math.ceil(totalProducts / ITEMS_PER_PAGE)}
+                    className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Next
+                  </button>
                 </div>
               )}
             </div>
@@ -495,85 +526,93 @@ function AppContent() {
         } />
 
         <Route path="/orders" element={
-        isLoggedIn ? (
+          isLoggedIn ? (
             <OrdersPage onProductClick={(productId) => {
               const product = products.find(p => p.id === productId);
               if (product) handleProductClick(product);
             }} />
-        ) : (
-          <div className="max-w-[1200px] mx-auto px-4 py-8">
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-              <h2 className="text-[#003366] mb-2">Sign in to view your orders</h2>
-              <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
-              <button
-                onClick={handleLoginPrompt}
-                className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
-              >
-                Sign In
-              </button>
+          ) : (
+            <div className="max-w-[1200px] mx-auto px-4 py-8">
+              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                <h2 className="text-[#003366] mb-2">Sign in to view your orders</h2>
+                <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
+                <button
+                  onClick={handleLoginPrompt}
+                  className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
+                >
+                  Sign In
+                </button>
+              </div>
             </div>
-          </div>
-        )
+          )
         } />
 
         <Route path="/wishlist" element={
-        isLoggedIn ? (
-          <WishlistPage
-            wishlistItems={wishlistItems}
-            onRemoveFromWishlist={handleRemoveFromWishlist}
-            onAddToCart={handleAddToCart}
-            onProductClick={handleProductClick}
-          />
-        ) : (
-          <div className="max-w-[1200px] mx-auto px-4 py-8">
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-              <h2 className="text-[#003366] mb-2">Sign in to view your wishlist</h2>
-              <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
-              <button
-                onClick={handleLoginPrompt}
-                className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
-              >
-                Sign In
-              </button>
+          isLoggedIn ? (
+            <WishlistPage
+              wishlistItems={wishlistItems}
+              onRemoveFromWishlist={handleRemoveFromWishlist}
+              onAddToCart={handleAddToCart}
+              onProductClick={handleProductClick}
+            />
+          ) : (
+            <div className="max-w-[1200px] mx-auto px-4 py-8">
+              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                <h2 className="text-[#003366] mb-2">Sign in to view your wishlist</h2>
+                <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
+                <button
+                  onClick={handleLoginPrompt}
+                  className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
+                >
+                  Sign In
+                </button>
+              </div>
             </div>
-          </div>
-        )
+          )
         } />
 
         <Route path="/account" element={
-        isLoggedIn ? (
-          <AccountPage
+          isLoggedIn ? (
+            <AccountPage
               onNavigateToOrders={() => navigate('/orders')}
               onNavigateToWishlist={() => navigate('/wishlist')}
-            isAdmin={isAdmin}
+              isAdmin={isAdmin}
               onNavigateToAdmin={() => navigate('/admin')}
-          />
-        ) : (
-          <div className="max-w-[1200px] mx-auto px-4 py-8">
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-              <h2 className="text-[#003366] mb-2">Sign in to view your account</h2>
-              <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
-              <button
-                onClick={handleLoginPrompt}
-                className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
-              >
-                Sign In
-              </button>
+            />
+          ) : (
+            <div className="max-w-[1200px] mx-auto px-4 py-8">
+              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                <h2 className="text-[#003366] mb-2">Sign in to view your account</h2>
+                <p className="text-gray-600 mb-6">You must be signed in to access this page</p>
+                <button
+                  onClick={handleLoginPrompt}
+                  className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
+                >
+                  Sign In
+                </button>
+              </div>
             </div>
-          </div>
-        )
+          )
         } />
 
         <Route path="/admin" element={
           isLoggedIn && isAdmin ? (
-          <AdminPage
-            products={products}
+            <AdminPage
+              products={products}
               onAddProduct={async (product) => {
                 try {
                   await productsService.create(product);
                   // Reload products
-                  const loadedProducts = await productsService.getAll();
+                  const { products: loadedProducts, count } = await productsService.getProducts({
+                    page: currentPage,
+                    limit: ITEMS_PER_PAGE,
+                    category: selectedCategory,
+                    categoryId: selectedCategoryId || undefined,
+                    subcategoryId: selectedSubcategoryId || undefined,
+                    search: searchQuery
+                  });
                   setProducts(loadedProducts);
+                  setTotalProducts(count);
                   toast.success('Product added successfully');
                 } catch (error) {
                   console.error('Failed to add product:', error);
@@ -585,8 +624,16 @@ function AppContent() {
                 try {
                   const count = await productsService.bulkImport(productsToImport);
                   // Reload products
-                  const loadedProducts = await productsService.getAll();
+                  const { products: loadedProducts, count } = await productsService.getProducts({
+                    page: currentPage,
+                    limit: ITEMS_PER_PAGE,
+                    category: selectedCategory,
+                    categoryId: selectedCategoryId || undefined,
+                    subcategoryId: selectedSubcategoryId || undefined,
+                    search: searchQuery
+                  });
                   setProducts(loadedProducts);
+                  setTotalProducts(count);
                   return count;
                 } catch (error) {
                   console.error('Failed to bulk import products:', error);
@@ -598,8 +645,16 @@ function AppContent() {
                 try {
                   await productsService.update(id, updates);
                   // Reload products
-                  const loadedProducts = await productsService.getAll();
+                  const { products: loadedProducts, count } = await productsService.getProducts({
+                    page: currentPage,
+                    limit: ITEMS_PER_PAGE,
+                    category: selectedCategory,
+                    categoryId: selectedCategoryId || undefined,
+                    subcategoryId: selectedSubcategoryId || undefined,
+                    search: searchQuery
+                  });
                   setProducts(loadedProducts);
+                  setTotalProducts(count);
                   toast.success('Product updated successfully');
                 } catch (error) {
                   console.error('Failed to update product:', error);
@@ -611,8 +666,16 @@ function AppContent() {
                 try {
                   await productsService.delete(id);
                   // Reload products
-                  const loadedProducts = await productsService.getAll();
+                  const { products: loadedProducts, count } = await productsService.getProducts({
+                    page: currentPage,
+                    limit: ITEMS_PER_PAGE,
+                    category: selectedCategory,
+                    categoryId: selectedCategoryId || undefined,
+                    subcategoryId: selectedSubcategoryId || undefined,
+                    search: searchQuery
+                  });
                   setProducts(loadedProducts);
+                  setTotalProducts(count);
                   toast.success('Product deleted successfully');
                 } catch (error) {
                   console.error('Failed to delete product:', error);
@@ -628,13 +691,21 @@ function AppContent() {
                     return;
                   }
                   const newPrice = product.price * (1 - discountPercent / 100);
-                  await productsService.update(productId, { 
+                  await productsService.update(productId, {
                     price: newPrice,
-                    originalPrice: product.price 
+                    originalPrice: product.price
                   });
                   // Reload products
-                  const loadedProducts = await productsService.getAll();
+                  const { products: loadedProducts, count } = await productsService.getProducts({
+                    page: currentPage,
+                    limit: ITEMS_PER_PAGE,
+                    category: selectedCategory,
+                    categoryId: selectedCategoryId || undefined,
+                    subcategoryId: selectedSubcategoryId || undefined,
+                    search: searchQuery
+                  });
                   setProducts(loadedProducts);
+                  setTotalProducts(count);
                   toast.success(`Sale applied: ${discountPercent}% off`);
                 } catch (error) {
                   console.error('Failed to create sale:', error);
@@ -642,34 +713,35 @@ function AppContent() {
                   throw error;
                 }
               }}
-          />
-        ) : (
-          <div className="max-w-[1200px] mx-auto px-4 py-8">
-            <div className="bg-white rounded-lg shadow-sm p-12 text-center">
-              <h2 className="text-[#003366] mb-2">Access Denied</h2>
+            />
+          ) : (
+            <div className="max-w-[1200px] mx-auto px-4 py-8">
+              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+                <h2 className="text-[#003366] mb-2">Access Denied</h2>
                 <p className="text-gray-600 mb-6">You must be an admin to access this page</p>
-              <button
+                <button
                   onClick={() => navigate('/')}
                   className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 px-6 py-2 rounded transition-colors"
-              >
+                >
                   Go Home
-              </button>
+                </button>
+              </div>
             </div>
-          </div>
-        )
+          )
         } />
 
         <Route path="/reset-password" element={<ResetPasswordPage />} />
-      </Routes>
+      </Routes >
 
       {/* Login Dialog */}
-      <LoginDialog
+      < LoginDialog
         open={showLoginDialog}
         onOpenChange={setShowLoginDialog}
         onLogin={(email, isAdmin) => {
           // Login is handled by auth state change listener
           console.log('Login successful:', email, isAdmin);
-        }}
+        }
+        }
       />
 
       {/* Category Browser Dialog */}
@@ -686,7 +758,7 @@ function AppContent() {
           />
         </DialogContent>
       </Dialog>
-      
+
       <Toaster />
     </>
   );

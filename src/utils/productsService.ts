@@ -10,6 +10,68 @@ import { config } from './config';
 
 export const productsService = {
   /**
+   * Fetch products with pagination and filtering
+   */
+  async getProducts(options: {
+    page?: number;
+    limit?: number;
+    category?: 'all' | 'baby' | 'pharmaceutical';
+    categoryId?: string;
+    subcategoryId?: string;
+    search?: string;
+  }): Promise<{ products: Product[]; count: number }> {
+    if (!config.useSupabase) {
+      return { products: [], count: 0 };
+    }
+
+    try {
+      const page = options.page || 1;
+      const limit = options.limit || 20;
+      const start = (page - 1) * limit;
+      const end = start + limit - 1;
+
+      let query = supabase
+        .from('products')
+        .select('*', { count: 'exact' })
+        .eq('is_active', true);
+
+      // Apply filters
+      if (options.category && options.category !== 'all') {
+        query = query.eq('category', options.category);
+      }
+
+      if (options.categoryId) {
+        query = query.eq('category_id', options.categoryId);
+      }
+
+      if (options.subcategoryId) {
+        query = query.eq('subcategory_id', options.subcategoryId);
+      }
+
+      if (options.search) {
+        query = query.or(
+          `name.ilike.%${options.search}%,description.ilike.%${options.search}%`
+        );
+      }
+
+      // Apply pagination
+      const { data, count, error } = await query
+        .order('created_at', { ascending: false })
+        .range(start, end);
+
+      if (error) throw error;
+
+      return {
+        products: (data || []).map(this.mapToProduct),
+        count: count || 0
+      };
+    } catch (error) {
+      console.error('Error fetching products:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Fetch all active products from Supabase
    */
   async getAll(): Promise<Product[]> {
@@ -23,6 +85,7 @@ export const productsService = {
         .select('*')
         .eq('is_active', true)
         .order('created_at', { ascending: false });
+
 
       if (error) throw error;
 
@@ -159,7 +222,7 @@ export const productsService = {
 
     try {
       console.log('🗑️ Attempting to delete product from Supabase:', id);
-      
+
       // Use admin client to bypass RLS policies
       const { data, error } = await supabaseAdmin
         .from('products')
@@ -193,11 +256,11 @@ export const productsService = {
       let countQuery = supabaseAdmin
         .from('products')
         .select('*', { count: 'exact', head: true });
-      
+
       if (action !== 'purge') {
         countQuery = countQuery.eq('category', action);
       }
-      
+
       const { count: countBefore } = await countQuery;
       const deletedCount = countBefore || 0;
 
@@ -210,7 +273,7 @@ export const productsService = {
       let deleteQuery = supabaseAdmin
         .from('products')
         .delete();
-      
+
       if (action === 'purge') {
         // For purge, we need a WHERE clause that matches all rows
         // Using .neq('id', '') which matches all UUIDs (they're never empty strings)
@@ -218,7 +281,7 @@ export const productsService = {
       } else {
         deleteQuery = deleteQuery.eq('category', action);
       }
-      
+
       const { error } = await deleteQuery;
 
       if (error) {
@@ -242,7 +305,7 @@ export const productsService = {
    */
   async ensureCategory(categoryId: string, category: 'baby' | 'pharmaceutical'): Promise<void> {
     if (!categoryId) return;
-    
+
     try {
       // Check if category exists
       const { data: existing } = await supabaseAdmin
@@ -250,19 +313,19 @@ export const productsService = {
         .select('id')
         .eq('id', categoryId)
         .single();
-      
+
       if (existing) {
         return; // Category already exists
       }
-      
+
       // Create missing category
       const categoryName = categoryId
         .split('-')
         .map(word => word.charAt(0).toUpperCase() + word.slice(1))
         .join(' ');
-      
+
       const parentId = category === 'baby' ? 'baby' : 'pharmaceutical';
-      
+
       const { error } = await supabaseAdmin
         .from('categories')
         .insert({
@@ -274,7 +337,7 @@ export const productsService = {
           display_order: 0,
           is_active: true,
         });
-      
+
       if (error && error.code !== '23505') { // Ignore duplicate key errors
         console.warn(`⚠️ Failed to create category ${categoryId}:`, error.message);
       } else if (!error) {
@@ -303,7 +366,7 @@ export const productsService = {
           categoryIds.add(p.categoryId);
         }
       });
-      
+
       // Create missing categories in parallel
       await Promise.allSettled(
         Array.from(categoryIds).map(categoryId => {
@@ -313,7 +376,7 @@ export const productsService = {
           return productsService.ensureCategory(categoryId, parentCategory as 'baby' | 'pharmaceutical');
         })
       );
-      
+
       const productsData = products.map(this.mapToSupabase);
       const BATCH_SIZE = 50; // Supabase can handle more, but batching prevents timeout issues
       let totalImported = 0;
@@ -324,7 +387,7 @@ export const productsService = {
         const batch = productsData.slice(i, i + BATCH_SIZE);
         const batchNumber = Math.floor(i / BATCH_SIZE) + 1;
         const totalBatches = Math.ceil(productsData.length / BATCH_SIZE);
-        
+
         if (config.debugMode) {
           console.log(`📦 Processing batch ${batchNumber}/${totalBatches} (${batch.length} products)...`);
         }
@@ -344,7 +407,7 @@ export const productsService = {
 
           const batchCount = data?.length || 0;
           totalImported += batchCount;
-          
+
           if (config.debugMode) {
             console.log(`✅ Batch ${batchNumber} imported: ${batchCount} products`);
           }
