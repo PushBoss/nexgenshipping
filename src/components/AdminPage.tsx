@@ -2543,6 +2543,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                             </ul>
                           </div>
                         )}
+                        {bulkDeleteAction === 'baby' && (
                             <div className="space-y-2 mt-4">
                               <p className="font-medium">
                                 You are about to delete {products.filter(p => p.category === 'baby').length} baby product(s).
@@ -2566,7 +2567,6 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                             ⚠️ This action cannot be undone!
                           </p>
                         </div>
-                      </DialogHeader>
                       <DialogFooter className="gap-2">
                         <Button
                           variant="outline"
