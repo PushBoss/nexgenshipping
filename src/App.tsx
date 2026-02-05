@@ -81,7 +81,7 @@ function AppContent() {
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
-  const ITEMS_PER_PAGE = 100;
+  const ITEMS_PER_PAGE = 20;
 
   // Handle currency change
   const handleCurrencyChange = (currency: Currency) => {
@@ -415,7 +415,7 @@ function AppContent() {
                             'Pharmaceutical Products'}
                   </h2>
                   <p className="text-sm text-gray-600 mt-1">
-                    {filteredProducts.length} {filteredProducts.length === 1 ? 'product' : 'products'} found
+                    {totalProducts} {totalProducts === 1 ? 'product' : 'products'} found
                   </p>
                 </div>
               </div>
