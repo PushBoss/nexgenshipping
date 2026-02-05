@@ -5,10 +5,10 @@ const supabaseUrl = `https://${projectId}.supabase.co`;
 
 // Service role key - This should be stored securely in environment variables
 // For now, we'll need you to add this to your environment
-const serviceRoleKey = process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
+const serviceRoleKey = import.meta.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
 
 if (!serviceRoleKey) {
-  console.warn('⚠️ Service role key not found in environment variables. Storage uploads will fail.');
+  console.warn('⚠️ Service role key not found. Using standard client (RLS policies apply).');
 }
 
 // Create admin client with service role key for bypassing RLS
@@ -19,4 +19,6 @@ export const supabaseAdmin = serviceRoleKey ? createClient(supabaseUrl, serviceR
   },
 }) : null;
 
-console.log('🔧 Supabase admin client created with service role support');
+if (supabaseAdmin) {
+  console.log('🔧 Supabase admin client created with service role support');
+}
