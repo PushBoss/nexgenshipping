@@ -18,7 +18,6 @@ import { SupabaseStatus } from './SupabaseStatus';
 import { DataManagementPanel } from './DataManagementPanel';
 import { UserManagementPanel } from './UserManagementPanel';
 import { supabase } from '../utils/supabaseClient';
-import { supabaseAdmin } from '../utils/supabaseAdmin';
 import { paymentGatewayService, PaymentGatewaySettings } from '../utils/paymentGatewayService';
 import { Switch } from './ui/switch';
 import { publicAnonKey } from '../utils/supabase/info';
@@ -90,7 +89,7 @@ export function AdminPage({
     name: '',
     description: '',
     category: 'baby',
-    categoryId: 'apparel-accessories',
+    categoryId: 'apparel',
     price: '',
     currency: 'USD',
     costPrice: '',
@@ -130,14 +129,21 @@ export function AdminPage({
         const res = await fetch(imageUrl);
         const blob = await res.blob();
         // Use admin client to bypass RLS policies
-        const { error } = await supabaseAdmin.storage.from('product-images').upload(fileName, blob, { upsert: true });
+        const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
         if (error) throw error;
-        const { data } = supabaseAdmin.storage.from('product-images').getPublicUrl(fileName);
+        const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
         return data.publicUrl || imageUrl;
       }
 
       // HTTP URL - Use Edge Function to bypass CORS (especially for Dropbox)
       if (imageUrl.startsWith('http')) {
+        // Special handling for Dropbox Preview links - warn user they typically don't work directly
+        if (imageUrl.includes('dropbox.com/preview')) {
+            console.warn(`⚠️ Detected Dropbox Preview link: ${imageUrl}. This may fail if valid authentication is not present. Trying anyway...`);
+            // Attempt to treat it as a potential direct link if format allows, but usually this fails.
+            // Ideally, we should prompt the user, but for bulk import we have to try our best.
+        }
+
         const isDropboxUrl = imageUrl.includes('dropbox.com');
         
         try {
@@ -148,6 +154,11 @@ export function AdminPage({
           try {
             console.log(`📥 Attempting to download image via Edge Function for ${productName}: ${imageUrl.substring(0, 80)}...`);
             
+            // Check for common error patterns before sending
+            if (imageUrl.includes('dropbox.com/preview')) {
+               console.warn(`Warning: ${productName} uses a Dropbox Preview link which usually requires login. Image upload may fail.`);
+            }
+
             const edgeResponse = await fetch(edgeFunctionUrl, {
               method: 'POST',
               headers: {
@@ -184,13 +195,13 @@ export function AdminPage({
                   console.log(`📤 Uploading blob to storage for ${productName} (size: ${blob.size} bytes, type: ${blob.type})`);
                   
                   // Upload to Supabase Storage using admin client to bypass RLS
-                  const { error, data: uploadData } = await supabaseAdmin.storage.from('product-images').upload(fileName, blob, { upsert: true });
+                  const { error, data: uploadData } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
                   if (error) {
                     console.error(`❌ Storage upload error for ${productName}:`, error);
                     throw error;
                   }
                   
-                  const { data: urlData } = supabaseAdmin.storage.from('product-images').getPublicUrl(fileName);
+                  const { data: urlData } = supabase.storage.from('product-images').getPublicUrl(fileName);
                   const publicUrl = urlData.publicUrl || imageUrl;
                   console.log(`✅ Successfully uploaded image via Edge Function for ${productName}: ${publicUrl}`);
                   return publicUrl;
@@ -227,9 +238,9 @@ export function AdminPage({
             if (!res.ok) throw new Error(`Failed to fetch image: ${res.status} ${res.statusText}`);
           const blob = await res.blob();
             // Use admin client to bypass RLS policies
-            const { error } = await supabaseAdmin.storage.from('product-images').upload(fileName, blob, { upsert: true });
+            const { error } = await supabase.storage.from('product-images').upload(fileName, blob, { upsert: true });
           if (error) throw error;
-            const { data } = supabaseAdmin.storage.from('product-images').getPublicUrl(fileName);
+            const { data } = supabase.storage.from('product-images').getPublicUrl(fileName);
             console.log(`✅ Successfully uploaded image via direct fetch for ${productName}`);
           return data.publicUrl || imageUrl;
           } catch (directFetchError: any) {
@@ -321,7 +332,7 @@ export function AdminPage({
         name: newProduct.name,
         description: newProduct.description || '',
         category: newProduct.category || 'baby',
-        categoryId: newProduct.categoryId || 'apparel-accessories',
+        categoryId: newProduct.categoryId || 'apparel',
         price: parseFloat(newProduct.price) || 9.99,
         currency: newProduct.currency || 'USD',
         rating: parseFloat(newProduct.rating) || 4.5,
@@ -341,7 +352,7 @@ export function AdminPage({
         name: '',
         description: '',
         category: 'baby',
-        categoryId: 'apparel-accessories',
+        categoryId: 'apparel',
         price: '',
         currency: 'USD',
         costPrice: '',
@@ -362,7 +373,8 @@ export function AdminPage({
   const getCategoryName = (categoryId: string) => {
     const categories: Record<string, string> = {
       // Baby categories
-      'apparel-accessories': 'Apparel and Accessories',
+      'apparel': 'Apparel',
+      'accessories': 'Accessories',
       'baby-feeding': 'Baby Feeding',
       'baby-toys-entertainment': 'Baby Toys & Entertainment',
       // Pharmaceutical categories
@@ -542,7 +554,7 @@ export function AdminPage({
         // Smart category detection with defaults
         const validCategoryIds = [
           // Baby categories
-          'apparel-accessories', 'baby-feeding', 'baby-toys-entertainment',
+          'apparel', 'accessories',
           // Pharmaceutical categories
           'cold-cough-allergy-sinus', 'rubs-ointments', 'medicine-eye-care-first-aid',
           'condom-accessories', 'energy-tabs-vitamins', 'dental-care', 'feminine-care',
@@ -550,19 +562,23 @@ export function AdminPage({
         ];
         
         let category = 'baby'; // Default category
-        let categoryId = 'apparel-accessories'; // Default subcategory
+        let categoryId = 'apparel'; // Default subcategory
         
         // Try to use provided categoryId first
         if (row.categoryid && validCategoryIds.includes(row.categoryid.toLowerCase())) {
           categoryId = row.categoryid.toLowerCase();
           // Infer category from categoryId
-          category = categoryId.startsWith('baby') ? 'baby' : 'pharmaceutical';
+          if (categoryId === 'apparel' || categoryId === 'accessories' || categoryId.startsWith('baby')) {
+            category = 'baby';
+          } else {
+            category = 'pharmaceutical';
+          }
         }
         // Otherwise try to use provided category
         else if (row.category && ['baby', 'pharmaceutical'].includes(row.category.toLowerCase())) {
           category = row.category.toLowerCase();
           // Set default categoryId based on category
-          categoryId = category === 'baby' ? 'apparel-accessories' : 'cold-cough-allergy-sinus';
+          categoryId = category === 'baby' ? 'apparel' : 'cold-cough-allergy-sinus';
           if (row.categoryid) {
             warnings.push(`Row ${rowNum}: Invalid categoryId '${row.categoryid}', using default '${categoryId}' for ${category} category`);
           }
@@ -949,7 +965,7 @@ export function AdminPage({
 
   const downloadTemplate = () => {
     const template = `name,description,category,categoryId,price,currency,costPrice,stockCount,soldCount,rating,reviewCount,image,inStock,badge
-Baby Onesie,Soft cotton onesie for newborns,baby,apparel-accessories,12.99,USD,6.50,150,87,4.5,150,https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400,true,Best Seller
+Baby Onesie,Soft cotton onesie for newborns,baby,apparel,12.99,USD,6.50,150,87,4.5,150,https://images.unsplash.com/photo-1515488042361-ee00e0ddd4e4?w=400,true,Best Seller
 Infant Formula,Nutritious formula for babies 0-12 months,baby,baby-feeding,24.99,USD,15.00,200,123,4.8,200,https://images.unsplash.com/photo-1587049352846-4a222e784acc?w=400,true,Standard
 Cold Medicine,Fast relief for cold and flu symptoms,pharmaceutical,cold-cough-allergy-sinus,8.99,USD,4.25,300,456,4.6,180,https://images.unsplash.com/photo-1584308666744-24d5c474f2ae?w=400,true,
 Baby Toy Set,Colorful educational toys,baby,baby-toys-entertainment,19.99,USD,10.00,100,45,4.7,89,https://images.unsplash.com/photo-1558060370-d644479cb6f7?w=400,true,New
@@ -1175,7 +1191,8 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                               <SelectContent>
                                 {newProduct.category === 'baby' ? (
                                   <>
-                                    <SelectItem value="apparel-accessories">Apparel & Accessories</SelectItem>
+                                    <SelectItem value="apparel">Apparel</SelectItem>
+                                    <SelectItem value="accessories">Accessories</SelectItem>
                                     <SelectItem value="baby-feeding">Feeding</SelectItem>
                                     <SelectItem value="baby-toys-entertainment">Toys & Entertainment</SelectItem>
                                   </>
@@ -1430,7 +1447,8 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                                 <SelectContent>
                                   {editingProduct.category === 'baby' ? (
                                     <>
-                                      <SelectItem value="apparel-accessories">Apparel & Accessories</SelectItem>
+                                      <SelectItem value="apparel">Apparel</SelectItem>
+                                      <SelectItem value="accessories">Accessories</SelectItem>
                                       <SelectItem value="baby-feeding">Feeding</SelectItem>
                                       <SelectItem value="baby-toys-entertainment">Toys & Entertainment</SelectItem>
                                     </>
@@ -2093,7 +2111,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                       <div className="mt-3">
                         <span className="font-medium">Valid categoryId values:</span>
                         <ul className="list-disc list-inside ml-4 mt-1 text-sm">
-                          <li><strong>Baby:</strong> apparel-accessories, baby-feeding, baby-toys-entertainment</li>
+                          <li><strong>Baby:</strong> apparel, accessories</li>
                           <li><strong>Pharmaceutical:</strong> cold-cough-allergy-sinus, rubs-ointments, medicine-eye-care-first-aid, condom-accessories, energy-tabs-vitamins, dental-care, feminine-care, pest-control-repellant, stomach-meds, otc-medicines, lip-care</li>
                         </ul>
                       </div>

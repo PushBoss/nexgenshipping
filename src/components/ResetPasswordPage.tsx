@@ -22,6 +22,15 @@ export function ResetPasswordPage() {
       const hashParams = new URLSearchParams(window.location.hash.substring(1));
       const accessToken = hashParams.get('access_token');
       const type = hashParams.get('type');
+      const error = hashParams.get('error');
+      const errorDescription = hashParams.get('error_description');
+
+      // Handle errors from the link (e.g. expired, invalid)
+      if (error) {
+        console.error('Password reset link error:', error, errorDescription);
+        toast.error(errorDescription?.replace(/\+/g, ' ') || 'Invalid or expired reset link');
+        return;
+      }
 
       // If we have a password recovery token in the URL, exchange it for a session
       if (accessToken && type === 'recovery') {

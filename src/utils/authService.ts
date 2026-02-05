@@ -99,9 +99,10 @@ export const authService = {
       if (error) {
         // If CORS error, provide helpful message
         if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
+          const origin = window.location.origin;
           return {
             success: false,
-            error: 'CORS error: Please configure Supabase to allow http://localhost:3000. Go to Supabase Dashboard → Authentication → URL Configuration and add http://localhost:3000 to Redirect URLs.',
+            error: `CORS error: Please configure Supabase to allow ${origin}. Go to Supabase Dashboard → Authentication → URL Configuration and add ${origin} to Redirect URLs.`,
           };
         }
         console.error('❌ Supabase auth.signUp error:', error);
@@ -213,9 +214,10 @@ export const authService = {
       if (error) {
         // If CORS error, provide helpful message
         if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
+          const origin = window.location.origin;
           return {
             success: false,
-            error: 'CORS error: Please configure Supabase to allow http://localhost:3000. Go to Supabase Dashboard → Authentication → URL Configuration and add http://localhost:3000 to Redirect URLs.',
+            error: `CORS error: Please configure Supabase to allow ${origin}. Go to Supabase Dashboard → Authentication → URL Configuration and add ${origin} to Redirect URLs.`,
           };
         }
         throw error;
@@ -509,9 +511,10 @@ export const authService = {
       if (error) {
         // If CORS error, provide helpful message
         if (error.message.includes('Failed to fetch') || error.message.includes('CORS')) {
+          const origin = window.location.origin;
           return {
             success: false,
-            error: 'CORS error: Please configure Supabase to allow your domain. Go to Supabase Dashboard → Authentication → URL Configuration and add your domain to Redirect URLs.',
+            error: `CORS error: Please configure Supabase to allow ${origin}. Go to Supabase Dashboard → Authentication → URL Configuration and add ${origin} to Redirect URLs.`,
           };
         }
         console.error('❌ Password reset error:', error);

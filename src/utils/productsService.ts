@@ -1,5 +1,4 @@
 import { supabase } from './supabaseClient';
-import { supabaseAdmin } from './supabaseAdmin';
 import { Product } from '../components/ProductCard';
 import { config } from './config';
 
@@ -132,7 +131,7 @@ export const productsService = {
       const productData = this.mapToSupabase(product);
 
       // Use admin client to bypass RLS policies
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await supabase
         .from('products')
         .insert(productData)
         .select()
@@ -164,7 +163,7 @@ export const productsService = {
 
       // Use admin client to bypass RLS policies
       // @ts-ignore - JSR Supabase package has strict typing issues
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await supabase
         .from('products')
         .update(updateData as any)
         .eq('id', id)
@@ -196,7 +195,7 @@ export const productsService = {
       // Use admin client to bypass RLS policies
       // Soft delete by marking as inactive
       // @ts-ignore - JSR Supabase package has strict typing issues
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from('products')
         .update({ is_active: false } as any)
         .eq('id', id);
@@ -224,7 +223,7 @@ export const productsService = {
       console.log('🗑️ Attempting to delete product from Supabase:', id);
 
       // Use admin client to bypass RLS policies
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await supabase
         .from('products')
         .delete()
         .eq('id', id)
@@ -253,7 +252,7 @@ export const productsService = {
 
     try {
       // First, count products to be deleted
-      let countQuery = supabaseAdmin
+      let countQuery = supabase
         .from('products')
         .select('*', { count: 'exact', head: true });
 
@@ -270,7 +269,7 @@ export const productsService = {
       }
 
       // Perform bulk delete
-      let deleteQuery = supabaseAdmin
+      let deleteQuery = supabase
         .from('products')
         .delete();
 
@@ -308,7 +307,7 @@ export const productsService = {
 
     try {
       // Check if category exists
-      const { data: existing } = await supabaseAdmin
+      const { data: existing } = await supabase
         .from('categories')
         .select('id')
         .eq('id', categoryId)
@@ -326,7 +325,7 @@ export const productsService = {
 
       const parentId = category === 'baby' ? 'baby' : 'pharmaceutical';
 
-      const { error } = await supabaseAdmin
+      const { error } = await supabase
         .from('categories')
         .insert({
           id: categoryId,
@@ -394,7 +393,7 @@ export const productsService = {
 
         try {
           // Use admin client to bypass RLS policies
-          const { data, error } = await supabaseAdmin
+          const { data, error } = await supabase
             .from('products')
             .insert(batch as any)
             .select();

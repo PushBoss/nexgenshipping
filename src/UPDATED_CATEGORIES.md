@@ -12,7 +12,8 @@ The category IDs for both Baby Products and Pharmaceutical Products have been su
 - ❌ `baby-clothing-accessories` - Baby Clothing & Accessories
 
 ### New Categories:
-- ✅ `apparel-accessories` - Apparel & Accessories
+- ✅ `apparel` - Apparel
+- ✅ `accessories` - Accessories
 - ✅ `baby-feeding` - Baby Feeding *(unchanged)*
 - ✅ `baby-toys-entertainment` - Toys & Entertainment *(unchanged)*
 

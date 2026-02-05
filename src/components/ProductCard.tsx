@@ -51,13 +51,13 @@ export function ProductCard({
     <div className="bg-white rounded-lg border border-gray-200 hover:shadow-lg transition-all duration-200 p-4 flex flex-col h-full group">
       {/* Image */}
       <div 
-        className="relative mb-3 overflow-hidden rounded cursor-pointer"
+        className="relative mb-3 overflow-hidden rounded cursor-pointer bg-white"
         onClick={() => onProductClick?.(product.id)}
       >
         <ImageWithFallback
           src={product.image}
           alt={product.name}
-          className="w-full h-48 object-cover transition-transform duration-300 group-hover:scale-105"
+          className="w-full h-48 object-contain p-2 transition-transform duration-300 group-hover:scale-105"
         />
         {product.badge && (
           <Badge 

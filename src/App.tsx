@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Header } from './components/Header';
+import { Footer } from './components/Footer';
 import { ProductCard, Product } from './components/ProductCard';
 import { LoginDialog } from './components/LoginDialog';
 import { AboutPage } from './components/AboutPage';
@@ -214,6 +215,7 @@ function AppContent() {
     setSelectedSubcategoryId(null);
     setSearchQuery('');
     setCurrentPage(1); // Reset to first page
+    navigate('/');
   };
 
   // Handle search
@@ -760,6 +762,20 @@ function AppContent() {
       </Dialog>
 
       <Toaster />
+      <Footer onNavigate={(page) => {
+        if (page === 'home' || page === '/') {
+          navigate('/');
+        } else if (page.startsWith('/')) {
+          navigate(page);
+        } else {
+          // For internal page identifiers
+          if (page === 'cart' || page === 'about' || page === 'contact' || page === 'orders' || page === 'wishlist' || page === 'account') {
+            navigate(`/${page === 'home' ? '' : page}`);
+          } else {
+            navigate(`/${page}`);
+          }
+        }
+      }} />
     </>
   );
 }

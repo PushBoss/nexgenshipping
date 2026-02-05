@@ -5,6 +5,7 @@ import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Product } from './ProductCard';
 import { useState } from 'react';
 import { Currency, convertCurrency, formatCurrency } from '../utils/currencyService';
+import { ReviewsSection } from './ReviewsSection';
 
 interface ProductDetailPageProps {
   product: Product;
@@ -303,65 +304,11 @@ export function ProductDetailPage({
       </div>
 
       {/* Customer Reviews */}
-      <div className="bg-white rounded-lg border border-gray-200 p-6 md:p-8">
-        <h2 className="text-[#003366] mb-6">Customer Reviews</h2>
-        
-        {/* Review Summary */}
-        <div className="flex items-center gap-8 mb-8 pb-6 border-b border-gray-200">
-          <div>
-            <div className="text-5xl text-gray-900 mb-1">{product.rating}</div>
-            <div className="flex items-center mb-1">
-              {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  className={`h-5 w-5 ${
-                    i < Math.floor(product.rating)
-                      ? 'fill-[#FF9900] text-[#FF9900]'
-                      : 'text-gray-300'
-                  }`}
-                />
-              ))}
-            </div>
-            <div className="text-sm text-gray-600">{product.reviewCount} ratings</div>
-          </div>
-        </div>
-
-        {/* Sample Reviews */}
-        <div className="space-y-6">
-          <div className="border-b border-gray-200 pb-6">
-            <div className="flex items-center gap-2 mb-2">
-              {[...Array(5)].map((_, i) => (
-                <Star
-                  key={i}
-                  className="h-4 w-4 fill-[#FF9900] text-[#FF9900]"
-                />
-              ))}
-              <span className="text-sm ml-2">Excellent Product</span>
-            </div>
-            <p className="text-sm text-gray-600 mb-2">Reviewed on October 15, 2025</p>
-            <p className="text-gray-700">
-              Great quality product! Exactly as described and arrived quickly. Highly recommend to anyone looking for reliable {product.category} products.
-            </p>
-          </div>
-
-          <div className="border-b border-gray-200 pb-6">
-            <div className="flex items-center gap-2 mb-2">
-              {[...Array(4)].map((_, i) => (
-                <Star
-                  key={i}
-                  className="h-4 w-4 fill-[#FF9900] text-[#FF9900]"
-                />
-              ))}
-              <Star className="h-4 w-4 text-gray-300" />
-              <span className="text-sm ml-2">Very Good</span>
-            </div>
-            <p className="text-sm text-gray-600 mb-2">Reviewed on October 10, 2025</p>
-            <p className="text-gray-700">
-              Good value for money. The product quality is solid and delivery was fast. Would purchase again.
-            </p>
-          </div>
-        </div>
-      </div>
+      <ReviewsSection 
+        productId={product.id} 
+        isLoggedIn={isLoggedIn} 
+        onLoginPrompt={onLoginPrompt} 
+      />
     </div>
   );
 }
