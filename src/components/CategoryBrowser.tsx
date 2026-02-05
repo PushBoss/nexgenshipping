@@ -25,7 +25,6 @@ export const PRODUCT_CATEGORIES: ProductCategory[] = [
     categories: [
       { name: 'Cold, Cough, Allergy & Sinus', id: 'cold-cough-allergy-sinus' },
       { name: 'Rubs & Ointments', id: 'rubs-ointments' },
-      { name: 'Medicine', id: 'medicine' },
       { name: 'Eye Care', id: 'eye-care' },
       { name: 'First Aid', id: 'first-aid' },
       { name: 'Condom & Accessories', id: 'condom-accessories' },

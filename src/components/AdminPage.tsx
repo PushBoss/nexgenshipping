@@ -380,7 +380,6 @@ export function AdminPage({
       // Pharmaceutical categories
       'cold-cough-allergy-sinus': 'Cold, Cough, Allergy & Sinus',
       'rubs-ointments': 'Rubs & Ointments',
-      'medicine': 'Medicine',
       'eye-care': 'Eye Care',
       'first-aid': 'First Aid',
       'condom-accessories': 'Condom & Accessories',
@@ -558,7 +557,7 @@ export function AdminPage({
           // Baby categories
           'apparel', 'accessories',
           // Pharmaceutical categories
-          'cold-cough-allergy-sinus', 'rubs-ointments', 'medicine', 'eye-care', 'first-aid',
+          'cold-cough-allergy-sinus', 'rubs-ointments', 'eye-care', 'first-aid',
           'condom-accessories', 'energy-tabs-vitamins', 'dental-care', 'feminine-care',
           'pest-control-repellant', 'stomach-meds', 'otc-medicines', 'lip-care'
         ];
@@ -1202,7 +1201,6 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                                     <>
                                       <SelectItem value="cold-cough-allergy-sinus">Cold, Cough, Allergy & Sinus</SelectItem>
                                       <SelectItem value="rubs-ointments">Rubs & Ointments</SelectItem>
-                                      <SelectItem value="medicine">Medicine</SelectItem>
                                       <SelectItem value="eye-care">Eye Care</SelectItem>
                                       <SelectItem value="first-aid">First Aid</SelectItem>
                                       <SelectItem value="condom-accessories">Condom & Accessories</SelectItem>
@@ -1460,7 +1458,6 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                                       <>
                                         <SelectItem value="cold-cough-allergy-sinus">Cold, Cough, Allergy & Sinus</SelectItem>
                                         <SelectItem value="rubs-ointments">Rubs & Ointments</SelectItem>
-                                        <SelectItem value="medicine">Medicine</SelectItem>
                                         <SelectItem value="eye-care">Eye Care</SelectItem>
                                         <SelectItem value="first-aid">First Aid</SelectItem>
                                         <SelectItem value="condom-accessories">Condom & Accessories</SelectItem>
@@ -2118,7 +2115,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                         <span className="font-medium">Valid categoryId values:</span>
                         <ul className="list-disc list-inside ml-4 mt-1 text-sm">
                           <li><strong>Baby:</strong> apparel, accessories</li>
-                          <li><strong>Pharmaceutical:</strong> cold-cough-allergy-sinus, rubs-ointments, medicine, eye-care, first-aid, condom-accessories, energy-tabs-vitamins, dental-care, feminine-care, pest-control-repellant, stomach-meds, otc-medicines, lip-care</li>
+                          <li><strong>Pharmaceutical:</strong> cold-cough-allergy-sinus, rubs-ointments, eye-care, first-aid, condom-accessories, energy-tabs-vitamins, dental-care, feminine-care, pest-control-repellant, stomach-meds, otc-medicines, lip-care</li>
                         </ul>
                       </div>
                       <div className="mt-3">
