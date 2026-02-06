@@ -22,8 +22,10 @@ Security and error handling middleware:
 ### 3. Database Migration (`002_storage_setup.sql`)
 Storage bucket policies:
 - ✅ Public read access (anyone can view images)
-- ✅ Authenticated upload (only logged-in users can upload)
+- ✅ Public upload access (required for Direct Auth compatibility)
 - ✅ Owner-only update/delete (users can only modify their own uploads)
+
+*Note: Since the app uses Direct Auth (custom authentication), Supabase treats users as 'anon'. Therefore, standard "Authenticated" policies block uploads. We use a public upload policy to resolve this.*
 
 ### 4. Client Configuration
 Updated `supabaseClient.ts` with storage support enabled.

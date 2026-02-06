@@ -11,7 +11,7 @@ import { Badge } from './ui/badge';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
-import { Plus, Edit, Trash2, Package, Tag, TrendingUp, Percent, Search, Filter, Upload, Download, FileUp, CheckCircle2, AlertCircle, XCircle, Link2, Image, Users, CreditCard, Settings, RefreshCw } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, Tag, TrendingUp, Percent, Search, Filter, Upload, Download, FileUp, CheckCircle2, AlertCircle, XCircle, Link2, Image, Users, CreditCard, Settings, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from './ui/dialog';
 import { Alert, AlertDescription } from './ui/alert';
 import { SupabaseStatus } from './SupabaseStatus';
@@ -19,6 +19,7 @@ import { DataManagementPanel } from './DataManagementPanel';
 import { UserManagementPanel } from './UserManagementPanel';
 import { supabase } from '../utils/supabaseClient';
 import { supabaseAdmin } from '../utils/supabaseAdminClient';
+import { productsService } from '../utils/productsService';
 import { paymentGatewayService, PaymentGatewaySettings } from '../utils/paymentGatewayService';
 import { Switch } from './ui/switch';
 import { publicAnonKey } from '../utils/supabase/info';
@@ -51,6 +52,12 @@ export function AdminPage({
   // Search and filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'baby' | 'pharmaceutical'>('all');
+
+  // Admin products state - fetch all products for admin management
+  const [adminAllProducts, setAdminAllProducts] = useState<Product[]>([]);
+  const [adminIsLoadingProducts, setAdminIsLoadingProducts] = useState(false);
+  const [adminCurrentPage, setAdminCurrentPage] = useState(1);
+  const ADMIN_ITEMS_PER_PAGE = 20;
 
   // CSV Upload state
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -102,6 +109,30 @@ export function AdminPage({
     inStock: true,
     badge: 'none',
   });
+
+  // Load all products for admin on component mount
+  useEffect(() => {
+    const loadAdminProducts = async () => {
+      try {
+        setAdminIsLoadingProducts(true);
+        const allProducts = await productsService.getAll();
+        setAdminAllProducts(allProducts);
+        setAdminCurrentPage(1); // Reset to first page
+      } catch (error) {
+        console.error('Failed to load products for admin:', error);
+        toast.error('Failed to load products');
+      } finally {
+        setAdminIsLoadingProducts(false);
+      }
+    };
+
+    loadAdminProducts();
+  }, []);
+
+  // Reset to first page when filters change
+  useEffect(() => {
+    setAdminCurrentPage(1);
+  }, [searchQuery, categoryFilter]);
 
   // Helper: upload image to Supabase storage with unique filename
   const uploadImageToStorage = async (imageUrl: string, productName: string, index?: number): Promise<string> => {
@@ -304,6 +335,11 @@ export function AdminPage({
       toast.success('Product updated successfully!');
       setIsEditDialogOpen(false);
       setEditingProduct(null);
+      // Reload admin products
+      setTimeout(async () => {
+        const allProducts = await productsService.getAll();
+        setAdminAllProducts(allProducts);
+      }, 500);
     } catch (error) {
       console.error('Error updating product:', error);
       toast.error('Failed to update product');
@@ -311,10 +347,20 @@ export function AdminPage({
   };
 
 
-  const handleDeleteProduct = (product: Product) => {
+  const handleDeleteProduct = async (product: Product) => {
     if (window.confirm(`Are you sure you want to delete "${product.name}"?`)) {
-      onDeleteProduct(product.id);
-      toast.success('Product deleted successfully');
+      try {
+        onDeleteProduct(product.id);
+        toast.success('Product deleted successfully');
+        // Reload admin products
+        setTimeout(async () => {
+          const allProducts = await productsService.getAll();
+          setAdminAllProducts(allProducts);
+        }, 500);
+      } catch (error) {
+        console.error('Error deleting product:', error);
+        toast.error('Failed to delete product');
+      }
     }
   };
 
@@ -368,6 +414,11 @@ export function AdminPage({
         inStock: true,
         badge: 'none',
       });
+      // Reload admin products
+      setTimeout(async () => {
+        const allProducts = await productsService.getAll();
+        setAdminAllProducts(allProducts);
+      }, 500);
     } catch (error) {
       console.error('Error adding product:', error);
       toast.error('Failed to add product');
@@ -888,6 +939,13 @@ export function AdminPage({
     if (fileInput) {
       fileInput.value = '';
     }
+
+    // Reload admin products
+    setTimeout(async () => {
+      const allProducts = await productsService.getAll();
+      setAdminAllProducts(allProducts);
+      setAdminCurrentPage(1);
+    }, 500);
   };
 
   // Migrate existing product images from Dropbox URLs to Supabase Storage
@@ -1028,7 +1086,24 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
     }
   };
 
-  // Filter products based on search and category
+  // Filter products based on search and category (for admin management)
+  const filteredAdminProducts = adminAllProducts.filter((product) => {
+    const matchesSearch = searchQuery.trim() === '' ||
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.id.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
+
+    return matchesSearch && matchesCategory;
+  });
+
+  // Pagination for filtered products
+  const totalAdminPages = Math.ceil(filteredAdminProducts.length / ADMIN_ITEMS_PER_PAGE);
+  const startIndex = (adminCurrentPage - 1) * ADMIN_ITEMS_PER_PAGE;
+  const endIndex = startIndex + ADMIN_ITEMS_PER_PAGE;
+  const paginatedAdminProducts = filteredAdminProducts.slice(startIndex, endIndex);
+
+  // Keep original filteredProducts for backward compatibility with other tabs
   const filteredProducts = products.filter((product) => {
     const matchesSearch = searchQuery.trim() === '' ||
       product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -1659,7 +1734,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
 
                   {/* Results count */}
                   <div className="text-sm text-gray-600">
-                    Showing {filteredProducts.length} of {products.length} products
+                    Showing {paginatedAdminProducts.length === 0 ? 0 : startIndex + 1}-{Math.min(endIndex, filteredAdminProducts.length)} of {filteredAdminProducts.length} products (Total in system: {adminAllProducts.length})
                     {searchQuery && ` matching "${searchQuery}"`}
                     {categoryFilter !== 'all' && ` in ${categoryFilter === 'baby' ? 'Baby Products' : 'Pharmaceuticals'}`}
                   </div>
@@ -1679,14 +1754,14 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {filteredProducts.length === 0 ? (
+                      {paginatedAdminProducts.length === 0 ? (
                         <TableRow>
                           <TableCell colSpan={6} className="text-center py-8 text-gray-500">
                             No products found. {searchQuery && 'Try a different search term or'} {categoryFilter !== 'all' && 'change the category filter or'} add a new product.
                           </TableCell>
                         </TableRow>
                       ) : (
-                        filteredProducts.map((product) => (
+                        paginatedAdminProducts.map((product) => (
                           <TableRow key={product.id}>
                             <TableCell>
                               <div className="flex items-center gap-3">
@@ -1759,6 +1834,35 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                     </TableBody>
                   </Table>
                 </div>
+
+                {/* Pagination Controls */}
+                {filteredAdminProducts.length > ADMIN_ITEMS_PER_PAGE && (
+                  <div className="flex items-center justify-between mt-4 px-4 py-3 border-t">
+                    <div className="text-sm text-gray-600">
+                      Page {adminCurrentPage} of {totalAdminPages}
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAdminCurrentPage(Math.max(1, adminCurrentPage - 1))}
+                        disabled={adminCurrentPage === 1}
+                      >
+                        <ChevronLeft className="h-4 w-4 mr-1" />
+                        Previous
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setAdminCurrentPage(Math.min(totalAdminPages, adminCurrentPage + 1))}
+                        disabled={adminCurrentPage >= totalAdminPages}
+                      >
+                        Next
+                        <ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
