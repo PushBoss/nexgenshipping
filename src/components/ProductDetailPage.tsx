@@ -1,4 +1,5 @@
 import { Star, ShoppingCart, ChevronLeft, Package, Truck, Shield, Lock } from 'lucide-react';
+import { useParams } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -7,9 +8,10 @@ import { useState, useEffect } from 'react';
 import { Currency, convertCurrency, formatCurrency } from '../utils/currencyService';
 import { ReviewsSection } from './ReviewsSection';
 import { reviewsService } from '../utils/reviewsService';
+import { productsService } from '../utils/productsService';
 
 interface ProductDetailPageProps {
-  product: Product;
+  product?: Product | null;
   isLoggedIn: boolean;
   onAddToCart: (productId: string) => void;
   onBuyNow: (productId: string) => void;
@@ -27,43 +29,93 @@ export function ProductDetailPage({
   onLoginPrompt,
   selectedCurrency = 'USD',
 }: ProductDetailPageProps) {
+  const { id } = useParams<{ id: string }>();
+  const [fetchedProduct, setFetchedProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(!product);
+  
+  const displayProduct = product || fetchedProduct;
+
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
-  const [calculatedRating, setCalculatedRating] = useState(product.rating);
-  const [reviewCount, setReviewCount] = useState(product.reviewCount);
+  const [calculatedRating, setCalculatedRating] = useState(displayProduct?.rating || 0);
+  const [reviewCount, setReviewCount] = useState(displayProduct?.reviewCount || 0);
+
+  // Fetch product if not provided via props (direct navigation)
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!product && id) {
+        setLoading(true);
+        try {
+          const found = await productsService.getById(id);
+          if (found) {
+            setFetchedProduct(found);
+            setCalculatedRating(found.rating);
+            setReviewCount(found.reviewCount);
+          }
+        } catch (error) {
+          console.error('Error fetching product:', error);
+        } finally {
+          setLoading(false);
+        }
+      } else if (product) {
+        setLoading(false);
+      }
+    };
+    fetchProduct();
+  }, [product, id]);
 
   // Load calculated average rating from reviews
   useEffect(() => {
+    if (!displayProduct) return;
+    
     const loadAverageRating = async () => {
-      const { averageRating, reviewCount: count } = await reviewsService.getAverageRating(product.id);
+      const { averageRating, reviewCount: count } = await reviewsService.getAverageRating(displayProduct.id);
       if (count > 0) {
         setCalculatedRating(averageRating);
         setReviewCount(count);
       }
     };
     loadAverageRating();
-  }, [product.id]);
+  }, [displayProduct?.id]);
 
   const handleRatingUpdated = async () => {
-    const { averageRating, reviewCount: count } = await reviewsService.getAverageRating(product.id);
+    if (!displayProduct) return;
+    const { averageRating, reviewCount: count } = await reviewsService.getAverageRating(displayProduct.id);
     setCalculatedRating(averageRating);
     setReviewCount(count);
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#003366]"></div>
+      </div>
+    );
+  }
+
+  if (!displayProduct) {
+    return (
+      <div className="max-w-[1400px] mx-auto px-4 py-12 text-center">
+        <h2 className="text-2xl font-bold text-gray-900 mb-4">Product Not Found</h2>
+        <Button onClick={onBack} variant="outline">Back to Products</Button>
+      </div>
+    );
+  }
+
   // Convert prices to selected currency
-  const productCurrency = product.currency || 'USD';
-  const displayPrice = convertCurrency(product.price, productCurrency, selectedCurrency);
-  const displayOriginalPrice = product.originalPrice 
-    ? convertCurrency(product.originalPrice, productCurrency, selectedCurrency)
+  const productCurrency = displayProduct.currency || 'USD';
+  const displayPrice = convertCurrency(displayProduct.price, productCurrency, selectedCurrency);
+  const displayOriginalPrice = displayProduct.originalPrice 
+    ? convertCurrency(displayProduct.originalPrice, productCurrency, selectedCurrency)
     : undefined;
   const savings = displayOriginalPrice ? displayOriginalPrice - displayPrice : 0;
 
   // Generate additional product images (using the same image for demo)
   const productImages = [
-    product.image,
-    product.image,
-    product.image,
-    product.image,
+    displayProduct.image,
+    displayProduct.image,
+    displayProduct.image,
+    displayProduct.image,
   ];
 
   const handleQuantityChange = (change: number) => {
@@ -75,15 +127,15 @@ export function ProductDetailPage({
 
   const handleAddToCart = () => {
     for (let i = 0; i < quantity; i++) {
-      onAddToCart(product.id);
+      onAddToCart(displayProduct.id);
     }
   };
 
   const handleBuyNow = () => {
     for (let i = 0; i < quantity; i++) {
-      onAddToCart(product.id);
+      onAddToCart(displayProduct.id);
     }
-    onBuyNow(product.id);
+    onBuyNow(displayProduct.id);
   };
 
   return (
@@ -104,12 +156,12 @@ export function ProductDetailPage({
           <div className="relative bg-white rounded-lg border border-gray-200 p-4">
             <ImageWithFallback
               src={productImages[selectedImage]}
-              alt={product.name}
+              alt={displayProduct.name}
               className="w-full h-96 md:h-[500px] object-contain"
             />
-            {product.badge && (
+            {displayProduct.badge && (
               <Badge className="absolute top-6 left-6 bg-[#DC143C] hover:bg-[#B01030] transition-colors text-white border-0">
-                {product.badge}
+                {displayProduct.badge}
               </Badge>
             )}
           </div>
@@ -128,7 +180,7 @@ export function ProductDetailPage({
               >
                 <ImageWithFallback
                   src={image}
-                  alt={`${product.name} view ${index + 1}`}
+                  alt={`${displayProduct.name} view ${index + 1}`}
                   className="w-full h-20 object-contain"
                 />
               </button>
@@ -139,7 +191,7 @@ export function ProductDetailPage({
         {/* Product Info */}
         <div className="space-y-6">
           <div>
-            <h1 className="text-gray-900 mb-2">{product.name}</h1>
+            <h1 className="text-gray-900 mb-2">{displayProduct.name}</h1>
             
             {/* Rating */}
             <div className="flex items-center gap-3 mb-4">
@@ -199,7 +251,7 @@ export function ProductDetailPage({
 
             {/* Stock Status */}
             <div className="mb-6">
-              {product.inStock ? (
+              {displayProduct.inStock ? (
                 <div className="flex items-center gap-2 text-green-700">
                   <Package className="h-5 w-5" />
                   <span className="text-lg">In Stock</span>
@@ -213,7 +265,7 @@ export function ProductDetailPage({
             </div>
 
             {/* Quantity Selector */}
-            {isLoggedIn && product.inStock && (
+            {isLoggedIn && displayProduct.inStock && (
               <div className="mb-6">
                 <label className="block text-sm text-gray-700 mb-2">Quantity:</label>
                 <div className="flex items-center gap-3">
@@ -240,7 +292,7 @@ export function ProductDetailPage({
                 <>
                   <Button
                     onClick={handleAddToCart}
-                    disabled={!product.inStock}
+                    disabled={!displayProduct.inStock}
                     className="w-full bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 h-12 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <ShoppingCart className="h-5 w-5 mr-2" />
@@ -248,7 +300,7 @@ export function ProductDetailPage({
                   </Button>
                   <Button
                     onClick={handleBuyNow}
-                    disabled={!product.inStock}
+                    disabled={!displayProduct.inStock}
                     className="w-full bg-[#FF9900] hover:bg-[#F08000] text-white h-12 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Buy Now
@@ -292,7 +344,7 @@ export function ProductDetailPage({
           <div>
             <h3 className="text-[#003366] mb-2">About This Item</h3>
             <ul className="list-disc list-inside space-y-2 ml-4">
-              <li>High-quality {product.category === 'baby' ? 'baby' : 'pharmaceutical'} product</li>
+              <li>High-quality {displayProduct.category === 'baby' ? 'baby' : 'pharmaceutical'} product</li>
               <li>Trusted brand with excellent customer reviews</li>
               <li>Safe and reliable for everyday use</li>
               <li>Meets all regulatory standards and quality requirements</li>
@@ -305,19 +357,19 @@ export function ProductDetailPage({
             <div className="grid md:grid-cols-2 gap-4">
               <div>
                 <span className="text-gray-600">Category:</span>
-                <span className="ml-2 capitalize">{product.category}</span>
+                <span className="ml-2 capitalize">{displayProduct.category}</span>
               </div>
               <div>
                 <span className="text-gray-600">Product ID:</span>
-                <span className="ml-2">{product.id}</span>
+                <span className="ml-2">{displayProduct.id}</span>
               </div>
               <div>
                 <span className="text-gray-600">Availability:</span>
-                <span className="ml-2">{product.inStock ? 'In Stock' : 'Out of Stock'}</span>
+                <span className="ml-2">{displayProduct.inStock ? 'In Stock' : 'Out of Stock'}</span>
               </div>
               <div>
                 <span className="text-gray-600">Rating:</span>
-                <span className="ml-2">{product.rating} / 5.0</span>
+                <span className="ml-2">{displayProduct.rating} / 5.0</span>
               </div>
             </div>
           </div>
@@ -326,7 +378,7 @@ export function ProductDetailPage({
 
       {/* Customer Reviews */}
       <ReviewsSection 
-        productId={product.id} 
+        productId={displayProduct.id} 
         isLoggedIn={isLoggedIn} 
         onLoginPrompt={onLoginPrompt}
         onRatingUpdated={handleRatingUpdated}
