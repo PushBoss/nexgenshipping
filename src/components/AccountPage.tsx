@@ -379,31 +379,22 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
             {/* Profile Tab */}
             <TabsContent value="profile">
               <Card className="p-6">
-                <div className="flex items-center gap-3 mb-8">
-                  <div className="bg-[#003366] w-12 h-12 rounded-full flex items-center justify-center">
-                    <User className="h-6 w-6 text-white" />
-                  </div>
-                  <div>
-                    <h2 className="text-[#003366] text-xl font-semibold">Personal Information</h2>
-                    <p className="text-sm text-gray-600">Update your personal details</p>
-                  </div>
+                <div className="mb-8">
+                  <h2 className="text-[#003366] text-2xl font-bold">Personal Information</h2>
+                  <p className="text-sm text-gray-600 mt-1">Update your account details and profile photo</p>
                 </div>
 
-                {/* Profile Picture Section - Simplified */}
-                <div className="mb-8 pb-8 border-b border-gray-200">
-                  <h3 className="text-base font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                    <Camera className="h-5 w-5 text-[#003366]" />
-                    Profile Picture
-                  </h3>
-                  <div className="flex flex-col items-center gap-6 bg-white">
-                    <Avatar className="h-32 w-32 border-4 border-[#003366] shadow-lg">
+                {/* Avatar Section - Simple and Clean */}
+                <div className="mb-12 py-8 border-b border-gray-200">
+                  <div className="flex flex-col items-center gap-6">
+                    <Avatar className="h-40 w-40 border-4 border-[#003366] shadow-lg">
                       <AvatarImage src={avatarUrl || undefined} alt={`${accountInfo.firstName} ${accountInfo.lastName}`} />
-                      <AvatarFallback className="bg-gradient-to-br from-[#003366] to-[#0055AA] text-white text-4xl font-bold">
+                      <AvatarFallback className="bg-gradient-to-br from-[#003366] to-[#0055AA] text-white text-6xl font-bold">
                         {getInitials(accountInfo.firstName, accountInfo.lastName)}
                       </AvatarFallback>
                     </Avatar>
                     
-                    <div className="flex gap-3 flex-wrap justify-center">
+                    <div className="flex gap-3">
                       <label className="relative">
                         <input
                           type="file"
@@ -419,10 +410,10 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
                             input?.click();
                           }}
                           disabled={avatarUpdating}
-                          className="bg-[#003366] hover:bg-[#001f47] text-white font-semibold shadow-md"
+                          className="bg-[#003366] hover:bg-[#001f47] text-white font-semibold shadow-md px-6"
                         >
                           <Camera className="h-4 w-4 mr-2" />
-                          {avatarUpdating ? 'Uploading...' : 'Change Photo'}
+                          {avatarUpdating ? 'Uploading...' : 'Upload Photo'}
                         </Button>
                       </label>
                       {avatarUrl && (
@@ -431,22 +422,22 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
                           onClick={handleDeleteAvatar}
                           disabled={avatarUpdating}
                           variant="outline"
-                          className="text-red-600 border-red-300 hover:bg-red-50 font-semibold border-2"
+                          className="text-red-600 border-red-300 hover:bg-red-50 font-semibold border-2 px-6"
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
                           Remove
                         </Button>
                       )}
                     </div>
-                    {avatarUrl && <p className="text-sm text-green-600 font-medium">✅ Photo is visible on your reviews</p>}
+                    {avatarUrl && <p className="text-sm text-green-600 font-medium">✅ Photo appears on your reviews</p>}
                   </div>
                 </div>
 
-                <form onSubmit={handleSaveProfile} className="space-y-4">
-                  <h3 className="font-semibold text-gray-900 text-base">Contact Information</h3>
+                {/* Form Section */}
+                <form onSubmit={handleSaveProfile} className="space-y-6">
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label htmlFor="firstName">First Name</Label>
+                      <Label htmlFor="firstName" className="font-semibold">First Name</Label>
                       <Input
                         id="firstName"
                         value={accountInfo.firstName}
@@ -454,7 +445,7 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="lastName">Last Name</Label>
+                      <Label htmlFor="lastName" className="font-semibold">Last Name</Label>
                       <Input
                         id="lastName"
                         value={accountInfo.lastName}
@@ -464,7 +455,7 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email">Email Address</Label>
+                    <Label htmlFor="email" className="font-semibold">Email Address</Label>
                     <div className="flex items-center gap-2">
                       <Mail className="h-5 w-5 text-gray-400" />
                       <Input
@@ -478,7 +469,7 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
+                    <Label htmlFor="phone" className="font-semibold">Phone Number</Label>
                     <div className="flex items-center gap-2">
                       <Phone className="h-5 w-5 text-gray-400" />
                       <Input
@@ -494,7 +485,7 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
                   <div className="flex justify-end pt-4">
                     <Button
                       type="submit"
-                      className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 font-semibold"
+                      className="bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 font-semibold px-8"
                     >
                       Save Changes
                     </Button>
