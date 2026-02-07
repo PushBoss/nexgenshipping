@@ -114,6 +114,16 @@ export function AdminPage({
     badge: 'none',
   });
 
+  // Helper function to reload admin products
+  const reloadAdminProducts = async () => {
+    try {
+      const allProducts = await productsService.getAll();
+      setAdminAllProducts(allProducts);
+    } catch (error) {
+      console.error('Failed to reload admin products:', error);
+    }
+  };
+
   // Load all products for admin on component mount
   useEffect(() => {
     const loadAdminProducts = async () => {
@@ -2098,8 +2108,12 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                                         price: product.originalPrice,
                                         originalPrice: null,
                                       });
+                                      // Reload admin products to show updated prices
+                                      await reloadAdminProducts();
+                                      toast.success('Sale cancelled');
                                     } catch (error) {
                                       console.error('Failed to cancel sale:', error);
+                                      toast.error('Failed to cancel sale');
                                     }
                                   }}
                                   className="bg-red-50 text-red-700 hover:bg-red-100 border-red-200"
@@ -2164,6 +2178,8 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                                         onClick={async () => {
                                           try {
                                             await onCreateSale(product.id, parseFloat(discountPercent) || 0);
+                                            // Reload admin products to show updated prices
+                                            await reloadAdminProducts();
                                             // Close dialog and reset state after successful sale creation
                                             setIsSaleDialogOpen(false);
                                             setSaleProduct(null);
