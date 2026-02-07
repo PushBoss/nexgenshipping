@@ -1123,6 +1123,17 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
     return matchesSearch && matchesCategory;
   });
 
+  // Filtered sales products - shows ALL products that have or can have sales
+  const filteredSalesProducts = adminAllProducts.filter((product) => {
+    const matchesSearch = searchQuery.trim() === '' ||
+      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      product.id.toLowerCase().includes(searchQuery.toLowerCase());
+
+    const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
+
+    return matchesSearch && matchesCategory;
+  });
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -2031,19 +2042,19 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
 
                   {/* Results count */}
                   <div className="text-sm text-gray-600">
-                    Showing {filteredProducts.length} of {products.length} products
+                    Showing {filteredSalesProducts.length > 0 ? (salesCurrentPage - 1) * SALES_ITEMS_PER_PAGE + 1 : 0}-{Math.min(salesCurrentPage * SALES_ITEMS_PER_PAGE, filteredSalesProducts.length)} of {filteredSalesProducts.length} products
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {filteredProducts.length === 0 ? (
+                  {filteredSalesProducts.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       No products found. Try a different search term or change the category filter.
                     </div>
                   ) : (
                     <>
-                      {filteredProducts
+                      {filteredSalesProducts
                         .slice((salesCurrentPage - 1) * SALES_ITEMS_PER_PAGE, salesCurrentPage * SALES_ITEMS_PER_PAGE)
                         .map((product) => (
                           <div
@@ -2158,7 +2169,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                         ))}
 
                       {/* Pagination Controls */}
-                      {filteredProducts.length > SALES_ITEMS_PER_PAGE && (
+                      {filteredSalesProducts.length > SALES_ITEMS_PER_PAGE && (
                         <div className="flex justify-center items-center gap-2 mt-8 py-4 border-t border-gray-100">
                           <button
                             onClick={() => setSalesCurrentPage(prev => Math.max(prev - 1, 1))}
@@ -2168,11 +2179,11 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                             Previous
                           </button>
                           <span className="text-sm text-gray-600">
-                            Page {salesCurrentPage} of {Math.ceil(filteredProducts.length / SALES_ITEMS_PER_PAGE)}
+                            Page {salesCurrentPage} of {Math.ceil(filteredSalesProducts.length / SALES_ITEMS_PER_PAGE)}
                           </span>
                           <button
                             onClick={() => setSalesCurrentPage(prev => prev + 1)}
-                            disabled={salesCurrentPage >= Math.ceil(filteredProducts.length / SALES_ITEMS_PER_PAGE)}
+                            disabled={salesCurrentPage >= Math.ceil(filteredSalesProducts.length / SALES_ITEMS_PER_PAGE)}
                             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             Next
