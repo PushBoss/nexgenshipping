@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react';
 import { Star, User } from 'lucide-react';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
+import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { reviewsService, Review } from '../utils/reviewsService';
 import { authService } from '../utils/authService';
+import { userService } from '../utils/userService';
 import { toast } from 'sonner';
 
 interface ReviewsSectionProps {
@@ -12,6 +14,16 @@ interface ReviewsSectionProps {
   onLoginPrompt: () => void;
   onRatingUpdated?: () => void; // Callback to refresh rating
 }
+
+// Helper to get user initials for avatar fallback
+const getInitials = (name: string = 'Customer'): string => {
+  const parts = name.split(' ');
+  return parts
+    .map(part => part[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2) || 'C';
+};
 
 export function ReviewsSection({ productId, isLoggedIn, onLoginPrompt, onRatingUpdated }: ReviewsSectionProps) {
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -190,12 +202,17 @@ export function ReviewsSection({ productId, isLoggedIn, onLoginPrompt, onRatingU
         <div className="space-y-6">
           {reviews.map((review) => (
             <div key={review.id} className="border-b border-gray-100 pb-6 last:border-0">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="bg-gray-200 rounded-full p-1">
-                  <User className="h-4 w-4 text-gray-500" />
+              <div className="flex items-center gap-3 mb-2">
+                <Avatar className="h-10 w-10 border border-gray-200">
+                  <AvatarImage src={review.user_avatar || undefined} alt={review.user_name || 'Customer'} />
+                  <AvatarFallback className="bg-gray-200 text-gray-700 font-medium">
+                    {getInitials(review.user_name || 'Customer')}
+                  </AvatarFallback>
+                </Avatar>
+                <div>
+                  <span className="font-medium text-gray-900 block">{review.user_name || 'Customer'}</span>
+                  <span className="text-xs text-gray-500">{new Date(review.created_at).toLocaleDateString()}</span>
                 </div>
-                <span className="font-medium text-gray-900">{review.user_name || 'Customer'}</span>
-                <span className="text-xs text-gray-500">• {new Date(review.created_at).toLocaleDateString()}</span>
               </div>
               <div className="flex text-[#FF9900] mb-2">
                 {[...Array(5)].map((_, i) => (

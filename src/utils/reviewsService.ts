@@ -7,23 +7,32 @@ export interface Review {
   rating: number; // 1-5
   comment?: string;
   user_name?: string;
+  user_avatar?: string;
   created_at: string;
 }
 
 export const reviewsService = {
   /**
-   * Get all reviews for a product
+   * Get all reviews for a product with user avatar info
    */
   async getByProductId(productId: string): Promise<Review[]> {
     try {
       const { data, error } = await supabase
         .from('reviews')
-        .select('*')
+        .select(`
+          *,
+          user_profiles:user_id(avatar_url)
+        `)
         .eq('product_id', productId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      
+      // Map the response to include avatar_url
+      return (data || []).map((review: any) => ({
+        ...review,
+        user_avatar: review.user_profiles?.avatar_url
+      }));
     } catch (error) {
       console.error('Error fetching reviews:', error);
       return [];
@@ -56,7 +65,10 @@ export const reviewsService = {
     try {
       const { data, error } = await supabase
         .from('reviews')
-        .select('*')
+        .select(`
+          *,
+          user_profiles:user_id(avatar_url)
+        `)
         .eq('product_id', productId)
         .eq('user_id', userId)
         .single();
@@ -65,7 +77,11 @@ export const reviewsService = {
         if (error.code === 'PGRST116') return null; // No rows found
         throw error;
       }
-      return data;
+      
+      return {
+        ...data,
+        user_avatar: data?.user_profiles?.avatar_url
+      };
     } catch (error) {
       console.error('Error checking user review:', error);
       return null;

@@ -1,16 +1,18 @@
-import { User, Mail, Phone, MapPin, Shield, CreditCard, Bell, Package, LayoutDashboard, AlertCircle } from 'lucide-react';
+import { User, Mail, Phone, MapPin, Shield, CreditCard, Bell, Package, LayoutDashboard, AlertCircle, Camera, Trash2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
 import { Switch } from './ui/switch';
+import { Avatar, AvatarImage, AvatarFallback } from './ui/avatar';
 import { useState, useEffect } from 'react';
 import { supabase } from '../utils/supabaseClient';
 import { authService } from '../utils/authService';
 import { ordersService } from '../utils/ordersService';
 import { config } from '../utils/config';
 import { wishlistService } from '../utils/wishlistService';
+import { userService } from '../utils/userService';
 import { toast } from 'sonner';
 
 interface AccountPageProps {
@@ -20,8 +22,18 @@ interface AccountPageProps {
   onNavigateToAdmin?: () => void;
 }
 
+// Helper to get user initials for avatar fallback
+const getInitials = (firstName?: string, lastName?: string): string => {
+  const first = firstName?.charAt(0)?.toUpperCase() || '';
+  const last = lastName?.charAt(0)?.toUpperCase() || '';
+  return (first + last) || 'U';
+};
+
 export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin, onNavigateToAdmin }: AccountPageProps) {
   const [loading, setLoading] = useState(true);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarUpdating, setAvatarUpdating] = useState(false);
+  const [userId, setUserId] = useState<string>('');
   const [accountInfo, setAccountInfo] = useState({
     firstName: '',
     lastName: '',
@@ -70,6 +82,8 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
         return;
       }
 
+      setUserId(user.id);
+
       // Load user profile
       const { data: profile, error: profileError } = await supabase
         .from('user_profiles')
@@ -86,6 +100,11 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
           email: user.email || '',
           phone: profile.phone || '',
         });
+
+        // Set avatar URL
+        if (profile.avatar_url) {
+          setAvatarUrl(profile.avatar_url);
+        }
 
         setAccountStats(prev => ({
           ...prev,
@@ -139,6 +158,41 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
       toast.error('Failed to load account data');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+
+    try {
+      setAvatarUpdating(true);
+      const publicUrl = await userService.uploadAvatar(userId, file);
+      setAvatarUrl(publicUrl);
+      toast.success('Profile picture updated successfully!');
+      console.log('✅ Avatar uploaded:', publicUrl);
+    } catch (error) {
+      console.error('❌ Error uploading avatar:', error);
+      toast.error('Failed to update profile picture');
+    } finally {
+      setAvatarUpdating(false);
+    }
+  };
+
+  const handleDeleteAvatar = async () => {
+    if (!userId) return;
+
+    try {
+      setAvatarUpdating(true);
+      await userService.deleteAvatar(userId);
+      setAvatarUrl(null);
+      toast.success('Profile picture deleted');
+      console.log('✅ Avatar deleted');
+    } catch (error) {
+      console.error('❌ Error deleting avatar:', error);
+      toast.error('Failed to delete profile picture');
+    } finally {
+      setAvatarUpdating(false);
     }
   };
 
@@ -325,13 +379,65 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
             {/* Profile Tab */}
             <TabsContent value="profile">
               <Card className="p-6">
-                <div className="flex items-center gap-3 mb-6">
+                <div className="flex items-center gap-3 mb-8">
                   <div className="bg-[#003366] w-12 h-12 rounded-full flex items-center justify-center">
                     <User className="h-6 w-6 text-white" />
                   </div>
                   <div>
                     <h2 className="text-[#003366]">Personal Information</h2>
                     <p className="text-sm text-gray-600">Update your personal details</p>
+                  </div>
+                </div>
+
+                {/* Profile Picture Section */}
+                <div className="mb-8 pb-8 border-b border-gray-200">
+                  <h3 className="text-lg font-semibold text-[#003366] mb-4">Profile Picture</h3>
+                  <div className="flex items-start gap-6">
+                    <Avatar className="h-24 w-24 border-4 border-gray-200">
+                      <AvatarImage src={avatarUrl || undefined} alt={`${accountInfo.firstName} ${accountInfo.lastName}`} />
+                      <AvatarFallback className="bg-gradient-to-br from-[#003366] to-[#0055AA] text-white text-xl font-semibold">
+                        {getInitials(accountInfo.firstName, accountInfo.lastName)}
+                      </AvatarFallback>
+                    </Avatar>
+                    
+                    <div className="flex-1 space-y-4">
+                      <p className="text-sm text-gray-600">Choose a photo to make your profile more personal. It will be visible when you post reviews.</p>
+                      <div className="flex gap-3">
+                        <label className="relative">
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleAvatarUpload}
+                            disabled={avatarUpdating}
+                            className="hidden"
+                          />
+                          <Button
+                            type="button"
+                            onClick={(e) => {
+                              const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                              input?.click();
+                            }}
+                            disabled={avatarUpdating}
+                            className="bg-[#0055AA] hover:bg-[#004499] text-white"
+                          >
+                            <Camera className="h-4 w-4 mr-2" />
+                            {avatarUpdating ? 'Uploading...' : 'Upload Photo'}
+                          </Button>
+                        </label>
+                        {avatarUrl && (
+                          <Button
+                            type="button"
+                            onClick={handleDeleteAvatar}
+                            disabled={avatarUpdating}
+                            variant="outline"
+                            className="text-red-500 border-red-300 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4 mr-2" />
+                            Delete
+                          </Button>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
