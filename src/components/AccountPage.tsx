@@ -389,59 +389,56 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
                   </div>
                 </div>
 
-                {/* Profile Picture Section - No nested card */}
+                {/* Profile Picture Section - Simplified */}
                 <div className="mb-8 pb-8 border-b border-gray-200">
-                  <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                  <h3 className="text-base font-semibold text-gray-900 mb-6 flex items-center gap-2">
                     <Camera className="h-5 w-5 text-[#003366]" />
                     Profile Picture
                   </h3>
-                  <div className="flex items-start gap-6 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg">
-                    <Avatar className="h-24 w-24 border-4 border-white shadow-md flex-shrink-0">
+                  <div className="flex flex-col items-center gap-6 bg-white">
+                    <Avatar className="h-32 w-32 border-4 border-[#003366] shadow-lg">
                       <AvatarImage src={avatarUrl || undefined} alt={`${accountInfo.firstName} ${accountInfo.lastName}`} />
-                      <AvatarFallback className="bg-gradient-to-br from-[#003366] to-[#0055AA] text-white text-2xl font-bold">
+                      <AvatarFallback className="bg-gradient-to-br from-[#003366] to-[#0055AA] text-white text-4xl font-bold">
                         {getInitials(accountInfo.firstName, accountInfo.lastName)}
                       </AvatarFallback>
                     </Avatar>
                     
-                    <div className="flex-1 space-y-4">
-                      <p className="text-sm text-gray-700">Upload a photo to personalize your profile. It will appear when you post product reviews.</p>
-                      <div className="flex gap-3 flex-wrap">
-                        <label className="relative">
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={handleAvatarUpload}
-                            disabled={avatarUpdating}
-                            className="hidden"
-                          />
-                          <Button
-                            type="button"
-                            onClick={(e) => {
-                              const input = e.currentTarget.previousElementSibling as HTMLInputElement;
-                              input?.click();
-                            }}
-                            disabled={avatarUpdating}
-                            className="bg-[#0055AA] hover:bg-[#004499] text-white font-medium"
-                          >
-                            <Camera className="h-4 w-4 mr-2" />
-                            {avatarUpdating ? 'Uploading...' : 'Upload Photo'}
-                          </Button>
-                        </label>
-                        {avatarUrl && (
-                          <Button
-                            type="button"
-                            onClick={handleDeleteAvatar}
-                            disabled={avatarUpdating}
-                            variant="outline"
-                            className="text-red-600 border-red-300 hover:bg-red-50 font-medium"
-                          >
-                            <Trash2 className="h-4 w-4 mr-2" />
-                            Delete Photo
-                          </Button>
-                        )}
-                      </div>
-                      {avatarUrl && <p className="text-xs text-gray-600 mt-2">✅ Photo added to your profile</p>}
+                    <div className="flex gap-3 flex-wrap justify-center">
+                      <label className="relative">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={handleAvatarUpload}
+                          disabled={avatarUpdating}
+                          className="hidden"
+                        />
+                        <Button
+                          type="button"
+                          onClick={(e) => {
+                            const input = e.currentTarget.previousElementSibling as HTMLInputElement;
+                            input?.click();
+                          }}
+                          disabled={avatarUpdating}
+                          className="bg-[#003366] hover:bg-[#001f47] text-white font-semibold shadow-md"
+                        >
+                          <Camera className="h-4 w-4 mr-2" />
+                          {avatarUpdating ? 'Uploading...' : 'Change Photo'}
+                        </Button>
+                      </label>
+                      {avatarUrl && (
+                        <Button
+                          type="button"
+                          onClick={handleDeleteAvatar}
+                          disabled={avatarUpdating}
+                          variant="outline"
+                          className="text-red-600 border-red-300 hover:bg-red-50 font-semibold border-2"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Remove
+                        </Button>
+                      )}
                     </div>
+                    {avatarUrl && <p className="text-sm text-green-600 font-medium">✅ Photo is visible on your reviews</p>}
                   </div>
                 </div>
 
