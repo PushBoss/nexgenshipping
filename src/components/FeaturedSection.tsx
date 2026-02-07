@@ -23,9 +23,16 @@ export function FeaturedSection({
   // Carousel state for best sellers
   const [bestSellerCarouselIndex, setBestSellerCarouselIndex] = useState(0);
 
-  // Get 4 visible items for carousel display
+  // Get 4 visible items for carousel display (or fewer if less than 4 unique items)
   const getCarouselItems = () => {
     if (bestSellers.length === 0) return [];
+    
+    // If we have fewer than 4 items, just show what we have without repeating
+    if (bestSellers.length <= 4) {
+      return bestSellers;
+    }
+    
+    // If we have more than 4, show 4 in rotation
     const items = [];
     for (let i = 0; i < 4; i++) {
       items.push(bestSellers[(bestSellerCarouselIndex + i) % bestSellers.length]);
@@ -77,7 +84,7 @@ export function FeaturedSection({
             </div>
 
             {/* Carousel Controls */}
-            {bestSellers.length > 4 && (
+            {bestSellers.length > 1 && (
               <div className="flex items-center justify-between mt-6">
                 <button
                   onClick={handlePreviousBestSellers}

@@ -126,11 +126,19 @@ export const dataSync = {
     }
 
     try {
-      const products = await productsApi.getAll();
+      const { supabase } = await import('./supabaseClient');
+      // Query Supabase directly to get the actual product count
+      const { count, error } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_active', true);
+
+      if (error) throw error;
+
       return {
         available: true,
         message: 'Supabase is connected and responding',
-        productCount: products.length,
+        productCount: count || 0,
       };
     } catch (error) {
       return {

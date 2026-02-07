@@ -105,6 +105,14 @@ export function DataManagementPanel({ products }: DataManagementPanelProps) {
 
     if (result.success) {
       toast.success(result.message);
+      // Refresh the total count after export
+      const { count, error } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_active', true);
+      if (!error) {
+        setTotalDatabaseProducts(count || 0);
+      }
     } else {
       toast.error(result.message);
     }
@@ -243,7 +251,7 @@ export function DataManagementPanel({ products }: DataManagementPanelProps) {
             ) : (
               <>
                 <Upload className="h-4 w-4 mr-2" />
-                Migrate {products.length} Products to Supabase
+                Migrate {totalDatabaseProducts !== null && totalDatabaseProducts > 0 ? totalDatabaseProducts : products.length} Products to Supabase
               </>
             )}
           </Button>
