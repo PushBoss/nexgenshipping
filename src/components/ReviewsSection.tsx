@@ -202,10 +202,10 @@ export function ReviewsSection({ productId, isLoggedIn, onLoginPrompt, onRatingU
         <div className="space-y-6">
           {reviews.map((review) => (
             <div key={review.id} className="border-b border-gray-100 pb-6 last:border-0">
-              <div className="flex items-center gap-3 mb-2">
-                <Avatar className="h-10 w-10 border border-gray-200 flex-shrink-0">
+              <div className="flex items-center gap-4 mb-3">
+                <Avatar className="h-12 w-12 border border-gray-200 flex-shrink-0">
                   <AvatarImage src={review.user_avatar || undefined} alt={review.user_name || 'Customer'} />
-                  <AvatarFallback className="bg-gradient-to-br from-[#003366] to-[#0055AA] text-white font-bold text-xs flex items-center justify-center">
+                  <AvatarFallback className="w-full h-full bg-gradient-to-br from-[#003366] to-[#0055AA] text-white font-bold text-base flex items-center justify-center">
                     {getInitials(review.user_name || 'Customer')}
                   </AvatarFallback>
                 </Avatar>

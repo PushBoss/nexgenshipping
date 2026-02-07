@@ -389,7 +389,7 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
                   <div className="flex flex-col items-center justify-center gap-6 w-full">
                     <Avatar className="h-40 w-40 border-4 border-[#003366] shadow-lg mx-auto">
                       <AvatarImage src={avatarUrl || undefined} alt={`${accountInfo.firstName} ${accountInfo.lastName}`} />
-                      <AvatarFallback className="bg-gradient-to-br from-[#003366] to-[#0055AA] text-white text-4xl font-bold">
+                      <AvatarFallback className="bg-gradient-to-br from-[#003366] to-[#0055AA] text-white text-6xl font-bold">
                         {getInitials(accountInfo.firstName, accountInfo.lastName)}
                       </AvatarFallback>
                     </Avatar>
