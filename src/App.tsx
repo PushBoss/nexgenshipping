@@ -85,6 +85,9 @@ function AppContent() {
   const [totalProducts, setTotalProducts] = useState(0);
   const ITEMS_PER_PAGE = 20;
 
+  // Sort State
+  const [sortBy, setSortBy] = useState<'newest' | 'price-low' | 'price-high' | 'rating'>('newest');
+
   // Handle currency change
   const handleCurrencyChange = (currency: Currency) => {
     setUserCurrency(currency);
@@ -147,7 +150,8 @@ function AppContent() {
           category: selectedCategory,
           categoryId: selectedCategoryId || undefined,
           subcategoryId: selectedSubcategoryId || undefined,
-          search: searchQuery
+          search: searchQuery,
+          sortBy: sortBy
         });
 
         setProducts(loadedProducts);
@@ -170,7 +174,7 @@ function AppContent() {
     }, 300); // Debounce to prevent rapid firing
 
     return () => clearTimeout(timeoutId);
-  }, [currentPage, selectedCategory, selectedCategoryId, selectedSubcategoryId, searchQuery]);
+  }, [currentPage, selectedCategory, selectedCategoryId, selectedSubcategoryId, searchQuery, sortBy]);
 
   // Load all bestseller and on-sale products (not paginated)
   useEffect(() => {
@@ -440,6 +444,22 @@ function AppContent() {
                   <p className="text-sm text-gray-600 mt-1">
                     {totalProducts} {totalProducts === 1 ? 'product' : 'products'} found
                   </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-sm font-medium text-gray-700">Sort by:</label>
+                  <select
+                    value={sortBy}
+                    onChange={(e) => {
+                      setSortBy(e.target.value as 'newest' | 'price-low' | 'price-high' | 'rating');
+                      setCurrentPage(1); // Reset to first page on sort change
+                    }}
+                    className="px-3 py-2 border border-gray-300 rounded-md text-sm bg-white text-gray-700 hover:border-gray-400 focus:outline-none focus:ring-2 focus:ring-[#0055AA]"
+                  >
+                    <option value="newest">Newest</option>
+                    <option value="price-low">Price: Low to High</option>
+                    <option value="price-high">Price: High to Low</option>
+                    <option value="rating">Rating</option>
+                  </select>
                 </div>
               </div>
 

@@ -30,6 +30,7 @@ export const productsService = {
     categoryId?: string;
     subcategoryId?: string;
     search?: string;
+    sortBy?: 'newest' | 'price-low' | 'price-high' | 'rating';
   }): Promise<{ products: Product[]; count: number }> {
     if (!config.useSupabase) {
       return { products: [], count: 0 };
@@ -66,9 +67,25 @@ export const productsService = {
         );
       }
 
+      // Determine sort order
+      let orderBy = 'created_at';
+      let ascending = false;
+      
+      if (options.sortBy === 'price-low') {
+        orderBy = 'price';
+        ascending = true;
+      } else if (options.sortBy === 'price-high') {
+        orderBy = 'price';
+        ascending = false;
+      } else if (options.sortBy === 'rating') {
+        orderBy = 'rating';
+        ascending = false;
+      }
+      // Default is 'newest' (created_at descending)
+
       // If showing all products without filters, fetch more to shuffle and select
       // This ensures good distribution across categories
-      if (!isFiltered && options.category === 'all') {
+      if (!isFiltered && options.category === 'all' && !options.sortBy) {
         const { data, count, error } = await query
           .order('created_at', { ascending: false });
 
@@ -88,12 +105,12 @@ export const productsService = {
           count: count || 0
         };
       } else {
-        // For filtered results, use normal pagination
+        // For filtered results or when sorting, use normal pagination
         const start = (page - 1) * limit;
         const end = start + limit - 1;
 
         const { data, count, error } = await query
-          .order('created_at', { ascending: false })
+          .order(orderBy, { ascending })
           .range(start, end);
 
         if (error) throw error;
