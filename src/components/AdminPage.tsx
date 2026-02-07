@@ -2157,7 +2157,20 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                                       }}>
                                         Cancel
                                       </Button>
-                                      <Button onClick={() => onCreateSale(product.id, parseFloat(discountPercent) || 0)} className="bg-[#DC143C] hover:bg-[#B01030]">
+                                      <Button 
+                                        onClick={async () => {
+                                          try {
+                                            await onCreateSale(product.id, parseFloat(discountPercent) || 0);
+                                            // Close dialog and reset state after successful sale creation
+                                            setIsSaleDialogOpen(false);
+                                            setSaleProduct(null);
+                                            setDiscountPercent('10'); // Reset to default
+                                          } catch (error) {
+                                            console.error('Failed to create sale:', error);
+                                          }
+                                        }} 
+                                        className="bg-[#DC143C] hover:bg-[#B01030]"
+                                      >
                                         Apply Sale
                                       </Button>
                                     </div>
