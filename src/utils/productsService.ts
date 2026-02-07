@@ -7,6 +7,18 @@ import { config } from './config';
  * Provides fallback to local state when Supabase is disabled or fails
  */
 
+// Helper to shuffle array consistently based on page number
+const shuffleArrayByPage = (array: any[], page: number): any[] => {
+  const shuffled = [...array];
+  // Use page number as seed for consistent shuffling per page
+  const seed = page * 12345;
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = ((seed + i) * 9007199254740992) % (i + 1);
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+};
+
 export const productsService = {
   /**
    * Fetch products with pagination and filtering
@@ -26,8 +38,9 @@ export const productsService = {
     try {
       const page = options.page || 1;
       const limit = options.limit || 20;
-      const start = (page - 1) * limit;
-      const end = start + limit - 1;
+
+      // Check if we're filtering or just showing all products
+      const isFiltered = options.category !== 'all' || options.categoryId || options.subcategoryId || options.search;
 
       let query = supabase
         .from('products')
@@ -53,17 +66,43 @@ export const productsService = {
         );
       }
 
-      // Apply pagination
-      const { data, count, error } = await query
-        .order('created_at', { ascending: false })
-        .range(start, end);
+      // If showing all products without filters, fetch more to shuffle and select
+      // This ensures good distribution across categories
+      if (!isFiltered && options.category === 'all') {
+        const { data, count, error } = await query
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      return {
-        products: (data || []).map(this.mapToProduct),
-        count: count || 0
-      };
+        // Shuffle all products for better distribution
+        const allProducts = (data || []).map(this.mapToProduct);
+        const shuffled = shuffleArrayByPage(allProducts, page);
+
+        // Apply pagination on shuffled results
+        const start = (page - 1) * limit;
+        const end = start + limit;
+        const paginatedProducts = shuffled.slice(start, end);
+
+        return {
+          products: paginatedProducts,
+          count: count || 0
+        };
+      } else {
+        // For filtered results, use normal pagination
+        const start = (page - 1) * limit;
+        const end = start + limit - 1;
+
+        const { data, count, error } = await query
+          .order('created_at', { ascending: false })
+          .range(start, end);
+
+        if (error) throw error;
+
+        return {
+          products: (data || []).map(this.mapToProduct),
+          count: count || 0
+        };
+      }
     } catch (error) {
       console.error('Error fetching products:', error);
       throw error;

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from './ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
@@ -8,6 +8,7 @@ import { Product } from './ProductCard';
 import { toast } from 'sonner';
 import { Alert, AlertDescription } from './ui/alert';
 import { config } from '../utils/config';
+import { supabase } from '../utils/supabaseClient';
 
 interface DataManagementPanelProps {
   products: Product[];
@@ -18,8 +19,36 @@ export function DataManagementPanel({ products }: DataManagementPanelProps) {
   const [isMigrating, setIsMigrating] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [healthStatus, setHealthStatus] = useState<any>(null);
+  const [totalDatabaseProducts, setTotalDatabaseProducts] = useState<number | null>(null);
+  const [isLoadingCount, setIsLoadingCount] = useState(true);
 
   const dataSource = getDataSource();
+
+  // Fetch total product count from database on mount
+  useEffect(() => {
+    const fetchTotalCount = async () => {
+      if (!config.useSupabase) {
+        setIsLoadingCount(false);
+        return;
+      }
+
+      try {
+        const { count, error } = await supabase
+          .from('products')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_active', true);
+
+        if (error) throw error;
+        setTotalDatabaseProducts(count || 0);
+      } catch (error) {
+        console.error('Failed to fetch total product count:', error);
+      } finally {
+        setIsLoadingCount(false);
+      }
+    };
+
+    fetchTotalCount();
+  }, []);
 
   const handleHealthCheck = async () => {
     setIsChecking(true);
@@ -29,6 +58,8 @@ export function DataManagementPanel({ products }: DataManagementPanelProps) {
     
     if (result.available) {
       toast.success(`Supabase connected - ${result.productCount} products in database`);
+      // Update total count when health check runs
+      setTotalDatabaseProducts(result.productCount);
     } else {
       toast.error(result.message);
     }
@@ -54,6 +85,14 @@ export function DataManagementPanel({ products }: DataManagementPanelProps) {
 
     if (result.success) {
       toast.success(result.message);
+      // Refresh the total count after migration
+      const { count, error } = await supabase
+        .from('products')
+        .select('*', { count: 'exact', head: true })
+        .eq('is_active', true);
+      if (!error) {
+        setTotalDatabaseProducts(count || 0);
+      }
     } else {
       toast.error(result.message);
     }
@@ -131,8 +170,10 @@ export function DataManagementPanel({ products }: DataManagementPanelProps) {
           <Card>
             <CardContent className="pt-6">
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-1">Local Products</p>
-                <p className="text-2xl font-bold text-[#003366]">{products.length}</p>
+                <p className="text-sm text-gray-600 mb-1">Database Products</p>
+                <p className="text-2xl font-bold text-[#003366]">
+                  {isLoadingCount ? '...' : totalDatabaseProducts || 0}
+                </p>
               </div>
             </CardContent>
           </Card>
