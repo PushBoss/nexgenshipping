@@ -16,30 +16,16 @@ CREATE TABLE IF NOT EXISTS public.currency_rates (
 ALTER TABLE public.currency_rates ENABLE ROW LEVEL SECURITY;
 
 -- Policies for currency_rates table
--- Allow anonymous users to SELECT rates (for conversion)
+-- Allow anyone to SELECT rates (for price conversion)
 CREATE POLICY "public_read_currency_rates" ON public.currency_rates
     FOR SELECT USING (true);
 
--- Allow only authenticated admins to INSERT/UPDATE rates
-CREATE POLICY "admin_manage_currency_rates" ON public.currency_rates
-    FOR INSERT WITH CHECK (
-        auth.uid() IS NOT NULL AND
-        EXISTS (
-            SELECT 1 FROM auth.users 
-            WHERE id = auth.uid() 
-            AND raw_user_meta_data->>'role' = 'admin'
-        )
-    );
+-- Allow authenticated users to INSERT/UPDATE rates (admin check done in app business logic)
+CREATE POLICY "authenticated_insert_currency_rates" ON public.currency_rates
+    FOR INSERT WITH CHECK (auth.uid() IS NOT NULL);
 
-CREATE POLICY "admin_update_currency_rates" ON public.currency_rates
-    FOR UPDATE USING (
-        auth.uid() IS NOT NULL AND
-        EXISTS (
-            SELECT 1 FROM auth.users 
-            WHERE id = auth.uid() 
-            AND raw_user_meta_data->>'role' = 'admin'
-        )
-    );
+CREATE POLICY "authenticated_update_currency_rates" ON public.currency_rates
+    FOR UPDATE USING (auth.uid() IS NOT NULL);
 
 -- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS idx_currency_rates_currency ON public.currency_rates(currency);

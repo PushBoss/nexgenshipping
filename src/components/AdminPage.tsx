@@ -2836,6 +2836,68 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                   </div>
                 ) : (
                   <>
+                    {/* Rate Source Preference */}
+                    <div className="border-b pb-6">
+                      <h3 className="text-lg font-semibold mb-4">Rate Source Preference</h3>
+                      <p className="text-sm text-gray-600 mb-4">
+                        Choose how the system fetches exchange rates for currency conversion:
+                      </p>
+                      <div className="space-y-3">
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="rateSource"
+                            value="auto"
+                            defaultChecked={true}
+                            onClick={() => {
+                              const { setRateSourcePreference } = require('../utils/currencyService');
+                              setRateSourcePreference('auto');
+                              toast.success('Rate source set to: Auto (prefer manual, fallback to API)');
+                            }}
+                            className="w-4 h-4 text-[#DC143C]"
+                          />
+                          <div>
+                            <p className="font-medium">Auto (Recommended)</p>
+                            <p className="text-xs text-gray-500">Use admin-configured rates first, then API</p>
+                          </div>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="rateSource"
+                            value="manual"
+                            onClick={() => {
+                              const { setRateSourcePreference } = require('../utils/currencyService');
+                              setRateSourcePreference('manual');
+                              toast.success('Rate source set to: Manual only');
+                            }}
+                            className="w-4 h-4 text-[#DC143C]"
+                          />
+                          <div>
+                            <p className="font-medium">Manual Only</p>
+                            <p className="text-xs text-gray-500">Use only admin-configured rates</p>
+                          </div>
+                        </label>
+                        <label className="flex items-center gap-3 cursor-pointer">
+                          <input
+                            type="radio"
+                            name="rateSource"
+                            value="api"
+                            onClick={() => {
+                              const { setRateSourcePreference } = require('../utils/currencyService');
+                              setRateSourcePreference('api');
+                              toast.success('Rate source set to: API only');
+                            }}
+                            className="w-4 h-4 text-[#DC143C]"
+                          />
+                          <div>
+                            <p className="font-medium">API Only</p>
+                            <p className="text-xs text-gray-500">Always use live API rates (exchangerate-api.com)</p>
+                          </div>
+                        </label>
+                      </div>
+                    </div>
+
                     {/* Current Rates Table */}
                     <div>
                       <h3 className="text-lg font-semibold mb-4">Current Exchange Rates</h3>

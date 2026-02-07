@@ -7,6 +7,7 @@ import { config } from './config';
 import { currencyRatesService } from './currencyRatesService';
 
 export type Currency = 'USD' | 'JMD' | 'CAD';
+export type RateSourcePreference = 'manual' | 'api' | 'auto'; // auto = prefer manual, fall back to API
 
 // Exchange rates (base currency: USD)
 // These are fallback rates - the system will try to fetch real-time rates on app load
@@ -95,6 +96,21 @@ export function getUserCurrency(): Currency {
  */
 export function setUserCurrency(currency: Currency): void {
   localStorage.setItem('preferredCurrency', currency);
+}
+
+/**
+ * Get rate source preference (manual, api, or auto)
+ */
+export function getRateSourcePreference(): RateSourcePreference {
+  const stored = localStorage.getItem('rateSourcePreference') as RateSourcePreference | null;
+  return stored || 'auto'; // Default to auto (prefer manual, fall back to API)
+}
+
+/**
+ * Set rate source preference
+ */
+export function setRateSourcePreference(preference: RateSourcePreference): void {
+  localStorage.setItem('rateSourcePreference', preference);
 }
 
 /**
