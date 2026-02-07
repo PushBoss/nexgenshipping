@@ -13,7 +13,7 @@ export interface UserProfile {
 
 export const userService = {
   /**
-   * Upload user avatar to Supabase storage and update user profile
+   * Upload user avatar as base64 to user profile
    */
   async uploadAvatar(userId: string, file: File): Promise<string | null> {
     try {
@@ -21,35 +21,37 @@ export const userService = {
         throw new Error('File must be an image');
       }
 
-      // Create a unique filename
-      const timestamp = Date.now();
-      const fileName = `${userId}-${timestamp}`;
-      const filePath = `avatars/${userId}/${fileName}`;
+      // Check file size (max 2MB)
+      const maxSize = 2 * 1024 * 1024; // 2MB
+      if (file.size > maxSize) {
+        throw new Error('File size must be less than 2MB');
+      }
 
-      // Upload file to storage
-      const { data, error: uploadError } = await supabase.storage
-        .from('user-avatars')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
+      // Read file as base64
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          try {
+            const base64Data = event.target?.result as string;
 
-      if (uploadError) throw uploadError;
+            // Update user profile with avatar base64
+            const { error } = await supabase
+              .from('user_profiles')
+              .update({ avatar_url: base64Data })
+              .eq('id', userId);
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('user-avatars')
-        .getPublicUrl(filePath);
+            if (error) throw error;
 
-      // Update user profile with avatar URL
-      const { error: updateError } = await supabase
-        .from('user_profiles')
-        .update({ avatar_url: publicUrl })
-        .eq('id', userId);
-
-      if (updateError) throw updateError;
-
-      return publicUrl;
+            resolve(base64Data);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        reader.onerror = () => {
+          reject(new Error('Failed to read file'));
+        };
+        reader.readAsDataURL(file);
+      });
     } catch (error) {
       console.error('Error uploading avatar:', error);
       throw error;
@@ -104,26 +106,13 @@ export const userService = {
    */
   async deleteAvatar(userId: string): Promise<void> {
     try {
-      // Get current avatar URL to find the file path
-      const profile = await this.getProfile(userId);
-      if (!profile?.avatar_url) return;
+      // Remove avatar_url from profile
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ avatar_url: null })
+        .eq('id', userId);
 
-      // Extract file path from public URL
-      // URL format: https://..../storage/v1/object/public/user-avatars/avatars/userId/filename
-      const urlParts = profile.avatar_url.split('/user-avatars/');
-      if (urlParts.length === 2) {
-        const filePath = urlParts[1];
-        
-        // Delete from storage
-        const { error: deleteError } = await supabase.storage
-          .from('user-avatars')
-          .remove([filePath]);
-
-        if (deleteError) throw deleteError;
-      }
-
-      // Remove avatar URL from profile
-      await this.updateProfile(userId, { avatar_url: null });
+      if (error) throw error;
     } catch (error) {
       console.error('Error deleting avatar:', error);
       throw error;
