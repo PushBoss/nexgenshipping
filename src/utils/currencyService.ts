@@ -4,6 +4,7 @@
  */
 
 import { config } from './config';
+import { currencyRatesService } from './currencyRatesService';
 
 export type Currency = 'USD' | 'JMD' | 'CAD';
 
@@ -97,9 +98,9 @@ export function setUserCurrency(currency: Currency): void {
 }
 
 /**
- * Update exchange rates from a real-time API
- * Uses exchangerate-api.com (free tier, no API key required)
- * Falls back to static rates if API fails
+ * Update exchange rates from a real-time API or database
+ * Uses Supabase database first (admin-maintained rates), then exchangerate-api.com
+ * Falls back to static rates if both fail
  */
 let exchangeRatesCache = { ...EXCHANGE_RATES };
 let lastFetchTime = 0;
@@ -109,11 +110,31 @@ export async function updateExchangeRates(): Promise<void> {
   try {
     const now = Date.now();
     
-    // Use cache if less than 24 hours old
+    // Use cache if less than 24 hours old and not the initial fallback
     if (now - lastFetchTime < CACHE_DURATION && exchangeRatesCache.JMD !== EXCHANGE_RATES.JMD) {
       Object.assign(EXCHANGE_RATES, exchangeRatesCache);
       console.log('Using cached exchange rates');
       return;
+    }
+
+    // Try to fetch from Supabase database first (admin-maintained rates)
+    try {
+      const dbRates = await currencyRatesService.getRates();
+      if (dbRates && dbRates.JMD && dbRates.CAD) {
+        exchangeRatesCache = dbRates;
+        Object.assign(EXCHANGE_RATES, dbRates);
+        lastFetchTime = now;
+        if (config.debugMode || window.location.search.includes('debug=true')) {
+          console.log('✅ Exchange rates updated from database:', {
+            JMD: EXCHANGE_RATES.JMD,
+            CAD: EXCHANGE_RATES.CAD,
+            source: 'supabase'
+          });
+        }
+        return;
+      }
+    } catch (dbError) {
+      console.warn('Failed to fetch rates from database, trying API:', dbError);
     }
 
     // Try to fetch from exchangerate-api.com (free, no API key)
@@ -133,21 +154,50 @@ export async function updateExchangeRates(): Promise<void> {
         if (data.rates && typeof data.rates.JMD === 'number' && data.rates.JMD > 0) {
           exchangeRatesCache.JMD = data.rates.JMD;
           EXCHANGE_RATES.JMD = data.rates.JMD;
+          // Store API rates in database for future use
+          try {
+            await currencyRatesService.updateRate('JMD', data.rates.JMD, 'api');
+          } catch (e) {
+            // Silently fail - not critical
+          }
         }
         if (data.rates && typeof data.rates.CAD === 'number' && data.rates.CAD > 0) {
           exchangeRatesCache.CAD = data.rates.CAD;
           EXCHANGE_RATES.CAD = data.rates.CAD;
+          // Store API rates in database for future use
+          try {
+            await currencyRatesService.updateRate('CAD', data.rates.CAD, 'api');
+          } catch (e) {
+            // Silently fail - not critical
+          }
         }
         
         lastFetchTime = now;
         if (config.debugMode || window.location.search.includes('debug=true')) {
-        console.log('✅ Exchange rates updated from API:', {
-          JMD: EXCHANGE_RATES.JMD,
+          console.log('✅ Exchange rates updated from API:', {
+            JMD: EXCHANGE_RATES.JMD,
             CAD: EXCHANGE_RATES.CAD,
             source: 'exchangerate-api.com'
-        });
+          });
         }
         return;
+      } else {
+        console.warn(`Exchange rate API returned status ${response.status}, using cached/fallback rates`);
+      }
+    } catch (apiError) {
+      // Silently fail and use cached/fallback rates - don't spam console in production
+      if (config.debugMode || window.location.search.includes('debug=true')) {
+        console.warn('Failed to fetch exchange rates from API, using cached/fallback rates:', apiError);
+      }
+    }
+
+    // Fallback: Use static rates if API fails
+    console.log('Using static exchange rates');
+  } catch (error) {
+    console.error('Failed to update exchange rates:', error);
+    // Continue with existing rates
+  }
+}
       } else {
         console.warn(`Exchange rate API returned status ${response.status}, using cached/fallback rates`);
       }

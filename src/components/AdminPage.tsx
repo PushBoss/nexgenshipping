@@ -11,7 +11,7 @@ import { Badge } from './ui/badge';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
-import { Plus, Edit, Trash2, Package, Tag, TrendingUp, Percent, Search, Filter, Upload, Download, FileUp, CheckCircle2, AlertCircle, XCircle, Link2, Image, Users, CreditCard, Settings, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, Tag, TrendingUp, Percent, Search, Filter, Upload, Download, FileUp, CheckCircle2, AlertCircle, XCircle, Link2, Image, Users, CreditCard, Settings, RefreshCw, ChevronLeft, ChevronRight, DollarSign } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from './ui/dialog';
 import { Alert, AlertDescription } from './ui/alert';
 import { SupabaseStatus } from './SupabaseStatus';
@@ -21,6 +21,7 @@ import { supabase } from '../utils/supabaseClient';
 import { supabaseAdmin } from '../utils/supabaseAdminClient';
 import { productsService } from '../utils/productsService';
 import { paymentGatewayService, PaymentGatewaySettings } from '../utils/paymentGatewayService';
+import { currencyRatesService, CurrencyRate } from '../utils/currencyRatesService';
 import { Switch } from './ui/switch';
 import { publicAnonKey } from '../utils/supabase/info';
 
@@ -84,6 +85,15 @@ export function AdminPage({
   });
   const [isLoadingPaymentSettings, setIsLoadingPaymentSettings] = useState(false);
   const [isSavingPaymentSettings, setIsSavingPaymentSettings] = useState(false);
+
+  // Currency Rates State
+  const [currencyRates, setCurrencyRates] = useState<CurrencyRate[]>([]);
+  const [isLoadingCurrencyRates, setIsLoadingCurrencyRates] = useState(false);
+  const [isSavingCurrencyRates, setIsSavingCurrencyRates] = useState(false);
+  const [currencyFormData, setCurrencyFormData] = useState({
+    JMD: '',
+    CAD: '',
+  });
 
   // Bulk Delete state
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false);
@@ -152,6 +162,30 @@ export function AdminPage({
   useEffect(() => {
     setSalesCurrentPage(1);
   }, [searchQuery, categoryFilter]);
+
+  // Load currency rates
+  useEffect(() => {
+    const loadCurrencyRates = async () => {
+      try {
+        setIsLoadingCurrencyRates(true);
+        const rates = await currencyRatesService.getAllRatesWithMetadata();
+        setCurrencyRates(rates);
+        // Pre-populate form with current rates
+        const formData: any = { JMD: '', CAD: '' };
+        rates.forEach(rate => {
+          formData[rate.currency] = rate.rate.toString();
+        });
+        setCurrencyFormData(formData);
+      } catch (error) {
+        console.error('Failed to load currency rates:', error);
+        toast.error('Failed to load currency rates');
+      } finally {
+        setIsLoadingCurrencyRates(false);
+      }
+    };
+
+    loadCurrencyRates();
+  }, []);
 
   // Helper: upload image to Supabase storage with unique filename
   const uploadImageToStorage = async (imageUrl: string, productName: string, index?: number): Promise<string> => {
@@ -1209,6 +1243,10 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
               <Percent className="h-4 w-4 mr-2" />
               Sales
             </TabsTrigger>
+            <TabsTrigger value="currency" className="flex-shrink-0">
+              <DollarSign className="h-4 w-4 mr-2" />
+              Currency
+            </TabsTrigger>
             <TabsTrigger value="bulk-upload" className="flex-shrink-0">
               <Upload className="h-4 w-4 mr-2" />
               Bulk Upload
@@ -1220,6 +1258,10 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
             <TabsTrigger value="users" className="flex-shrink-0">
               <Users className="h-4 w-4 mr-2" />
               Users
+            </TabsTrigger>
+            <TabsTrigger value="payment-settings" className="flex-shrink-0">
+              <CreditCard className="h-4 w-4 mr-2" />
+              Payment
             </TabsTrigger>
           </TabsList>
 
@@ -2774,6 +2816,171 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                     </DialogContent>
                   </Dialog>
                 </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Currency Management Tab */}
+          <TabsContent value="currency">
+            <Card>
+              <CardHeader>
+                <CardTitle>Currency Exchange Rates</CardTitle>
+                <CardDescription>
+                  Update and manage exchange rates for USD, JMD, and CAD currencies
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                {isLoadingCurrencyRates ? (
+                  <div className="flex items-center justify-center py-8">
+                    <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
+                  </div>
+                ) : (
+                  <>
+                    {/* Current Rates Table */}
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Current Exchange Rates</h3>
+                      <div className="border rounded-lg overflow-hidden">
+                        <Table>
+                          <TableHeader className="bg-gray-50">
+                            <TableRow>
+                              <TableHead>Currency</TableHead>
+                              <TableHead>Symbol</TableHead>
+                              <TableHead>Exchange Rate (vs USD)</TableHead>
+                              <TableHead>Source</TableHead>
+                              <TableHead>Last Updated</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            <TableRow>
+                              <TableCell className="font-medium">USD (US Dollar)</TableCell>
+                              <TableCell>$</TableCell>
+                              <TableCell>1.0000 (Base)</TableCell>
+                              <TableCell className="text-xs"><Badge>system</Badge></TableCell>
+                              <TableCell className="text-xs text-gray-500">-</TableCell>
+                            </TableRow>
+                            {currencyRates.map((rate) => (
+                              <TableRow key={rate.currency}>
+                                <TableCell className="font-medium">
+                                  {rate.currency === 'JMD' ? 'JMD (Jamaican Dollar)' : 'CAD (Canadian Dollar)'}
+                                </TableCell>
+                                <TableCell>{rate.currency === 'JMD' ? 'J$' : 'C$'}</TableCell>
+                                <TableCell>{rate.rate.toFixed(4)}</TableCell>
+                                <TableCell className="text-xs">
+                                  <Badge variant={rate.source === 'api' ? 'secondary' : 'outline'}>
+                                    {rate.source}
+                                  </Badge>
+                                </TableCell>
+                                <TableCell className="text-xs text-gray-500">
+                                  {new Date(rate.updated_at).toLocaleDateString()}
+                                </TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+
+                    {/* Update Rates Form */}
+                    <div className="border-t pt-6">
+                      <h3 className="text-lg font-semibold mb-4">Update Exchange Rates</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* JMD Rate */}
+                        <div className="space-y-2">
+                          <Label htmlFor="jmd-rate" className="text-base">
+                            JMD Rate (Jamaican Dollar)
+                          </Label>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-600">1 USD =</span>
+                            <Input
+                              id="jmd-rate"
+                              type="number"
+                              step="0.0001"
+                              placeholder="155.75"
+                              value={currencyFormData.JMD}
+                              onChange={(e) => setCurrencyFormData({...currencyFormData, JMD: e.target.value})}
+                              disabled={isSavingCurrencyRates}
+                              className="flex-1"
+                            />
+                            <span className="text-sm font-medium">J$</span>
+                          </div>
+                          <p className="text-xs text-gray-500">Example: 155.75</p>
+                        </div>
+
+                        {/* CAD Rate */}
+                        <div className="space-y-2">
+                          <Label htmlFor="cad-rate" className="text-base">
+                            CAD Rate (Canadian Dollar)
+                          </Label>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-gray-600">1 USD =</span>
+                            <Input
+                              id="cad-rate"
+                              type="number"
+                              step="0.0001"
+                              placeholder="1.35"
+                              value={currencyFormData.CAD}
+                              onChange={(e) => setCurrencyFormData({...currencyFormData, CAD: e.target.value})}
+                              disabled={isSavingCurrencyRates}
+                              className="flex-1"
+                            />
+                            <span className="text-sm font-medium">C$</span>
+                          </div>
+                          <p className="text-xs text-gray-500">Example: 1.35</p>
+                        </div>
+                      </div>
+
+                      {/* Info Alert */}
+                      <Alert className="mt-6">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>
+                          <strong>Note:</strong> USD is the base currency (rate = 1.0) and cannot be changed. 
+                          Enter the exchange rate relative to 1 USD. For example, if 1 USD = 155.75 JMD, enter 155.75.
+                        </AlertDescription>
+                      </Alert>
+
+                      {/* Save Button */}
+                      <Button
+                        onClick={async () => {
+                          try {
+                            const jmdRate = parseFloat(currencyFormData.JMD);
+                            const cadRate = parseFloat(currencyFormData.CAD);
+
+                            if (!jmdRate || jmdRate <= 0 || !cadRate || cadRate <= 0) {
+                              toast.error('All rates must be positive numbers');
+                              return;
+                            }
+
+                            setIsSavingCurrencyRates(true);
+                            await currencyRatesService.updateRate('JMD', jmdRate, 'manual');
+                            await currencyRatesService.updateRate('CAD', cadRate, 'manual');
+                            
+                            // Reload rates
+                            const updatedRates = await currencyRatesService.getAllRatesWithMetadata();
+                            setCurrencyRates(updatedRates);
+                            
+                            toast.success('Currency rates updated successfully');
+                          } catch (error) {
+                            console.error('Failed to update rates:', error);
+                            toast.error('Failed to update currency rates');
+                          } finally {
+                            setIsSavingCurrencyRates(false);
+                          }
+                        }}
+                        disabled={isSavingCurrencyRates || !currencyFormData.JMD || !currencyFormData.CAD}
+                        className="bg-[#DC143C] hover:bg-[#B01030] mt-6"
+                      >
+                        {isSavingCurrencyRates ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Saving...
+                          </>
+                        ) : (
+                          'Save Exchange Rates'
+                        )}
+                      </Button>
+                    </div>
+                  </>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
