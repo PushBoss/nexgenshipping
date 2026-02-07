@@ -3,6 +3,8 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Currency, convertCurrency, formatCurrency } from '../utils/currencyService';
+import { useState, useEffect } from 'react';
+import { reviewsService } from '../utils/reviewsService';
 
 export interface Product {
   id: string;
@@ -41,6 +43,21 @@ export function ProductCard({
   onProductClick,
   selectedCurrency = 'USD',
 }: ProductCardProps) {
+  const [calculatedRating, setCalculatedRating] = useState(product.rating);
+  const [reviewCount, setReviewCount] = useState(product.reviewCount);
+
+  // Load calculated average rating from reviews
+  useEffect(() => {
+    const loadAverageRating = async () => {
+      const { averageRating, reviewCount: count } = await reviewsService.getAverageRating(product.id);
+      if (count > 0) {
+        setCalculatedRating(averageRating);
+        setReviewCount(count);
+      }
+    };
+    loadAverageRating();
+  }, [product.id]);
+
   // Convert prices to selected currency
   const productCurrency = product.currency || 'USD';
   const displayPrice = convertCurrency(product.price, productCurrency, selectedCurrency);
@@ -88,7 +105,7 @@ export function ProductCard({
               <Star
                 key={i}
                 className={`h-4 w-4 ${
-                  i < Math.floor(product.rating)
+                  i < Math.floor(calculatedRating)
                     ? 'fill-[#FF9900] text-[#FF9900]'
                     : 'text-gray-300'
                 }`}
@@ -96,7 +113,7 @@ export function ProductCard({
             ))}
           </div>
           <span className="text-sm text-blue-600 hover:text-[#C7511F] cursor-pointer">
-            {product.reviewCount}
+            {reviewCount}
           </span>
         </div>
 

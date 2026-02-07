@@ -10,9 +10,10 @@ interface ReviewsSectionProps {
   productId: string;
   isLoggedIn: boolean;
   onLoginPrompt: () => void;
+  onRatingUpdated?: () => void; // Callback to refresh rating
 }
 
-export function ReviewsSection({ productId, isLoggedIn, onLoginPrompt }: ReviewsSectionProps) {
+export function ReviewsSection({ productId, isLoggedIn, onLoginPrompt, onRatingUpdated }: ReviewsSectionProps) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [userReview, setUserReview] = useState<Review | null>(null);
@@ -81,6 +82,7 @@ export function ReviewsSection({ productId, isLoggedIn, onLoginPrompt }: Reviews
         setUserReview(newReview);
         setComment('');
         toast.success('Review submitted successfully!');
+        onRatingUpdated?.(); // Refresh parent rating
       }
     } catch (error) {
       console.error('Failed to submit review:', error);
@@ -97,6 +99,7 @@ export function ReviewsSection({ productId, isLoggedIn, onLoginPrompt }: Reviews
       setReviews(reviews.filter(r => r.id !== userReview.id));
       setUserReview(null);
       toast.success('Review deleted');
+      onRatingUpdated?.(); // Refresh parent rating
     } catch (error) {
       console.error('Failed to delete review:', error);
       toast.error('Failed to delete review');

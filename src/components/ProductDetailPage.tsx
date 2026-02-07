@@ -3,9 +3,10 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { Product } from './ProductCard';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Currency, convertCurrency, formatCurrency } from '../utils/currencyService';
 import { ReviewsSection } from './ReviewsSection';
+import { reviewsService } from '../utils/reviewsService';
 
 interface ProductDetailPageProps {
   product: Product;
@@ -28,6 +29,26 @@ export function ProductDetailPage({
 }: ProductDetailPageProps) {
   const [selectedImage, setSelectedImage] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [calculatedRating, setCalculatedRating] = useState(product.rating);
+  const [reviewCount, setReviewCount] = useState(product.reviewCount);
+
+  // Load calculated average rating from reviews
+  useEffect(() => {
+    const loadAverageRating = async () => {
+      const { averageRating, reviewCount: count } = await reviewsService.getAverageRating(product.id);
+      if (count > 0) {
+        setCalculatedRating(averageRating);
+        setReviewCount(count);
+      }
+    };
+    loadAverageRating();
+  }, [product.id]);
+
+  const handleRatingUpdated = async () => {
+    const { averageRating, reviewCount: count } = await reviewsService.getAverageRating(product.id);
+    setCalculatedRating(averageRating);
+    setReviewCount(count);
+  };
 
   // Convert prices to selected currency
   const productCurrency = product.currency || 'USD';
@@ -127,16 +148,16 @@ export function ProductDetailPage({
                   <Star
                     key={i}
                     className={`h-5 w-5 ${
-                      i < Math.floor(product.rating)
+                      i < Math.floor(calculatedRating)
                         ? 'fill-[#FF9900] text-[#FF9900]'
                         : 'text-gray-300'
                     }`}
                   />
                 ))}
               </div>
-              <span className="text-sm text-[#003366]">{product.rating} out of 5</span>
+              <span className="text-sm text-[#003366]">{calculatedRating.toFixed(1)} out of 5</span>
               <span className="text-sm text-blue-600 hover:text-[#C7511F] cursor-pointer">
-                {product.reviewCount} ratings
+                {reviewCount} {reviewCount === 1 ? 'rating' : 'ratings'}
               </span>
             </div>
 
@@ -307,7 +328,8 @@ export function ProductDetailPage({
       <ReviewsSection 
         productId={product.id} 
         isLoggedIn={isLoggedIn} 
-        onLoginPrompt={onLoginPrompt} 
+        onLoginPrompt={onLoginPrompt}
+        onRatingUpdated={handleRatingUpdated}
       />
     </div>
   );

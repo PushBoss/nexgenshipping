@@ -87,5 +87,35 @@ export const reviewsService = {
       console.error('Error deleting review:', error);
       throw error;
     }
+  },
+
+  /**
+   * Get average rating for a product
+   */
+  async getAverageRating(productId: string): Promise<{ averageRating: number; reviewCount: number }> {
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('rating')
+        .eq('product_id', productId);
+
+      if (error) throw error;
+
+      const reviews = data || [];
+      if (reviews.length === 0) {
+        return { averageRating: 0, reviewCount: 0 };
+      }
+
+      const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
+      const average = sum / reviews.length;
+
+      return {
+        averageRating: parseFloat(average.toFixed(2)),
+        reviewCount: reviews.length
+      };
+    } catch (error) {
+      console.error('Error calculating average rating:', error);
+      return { averageRating: 0, reviewCount: 0 };
+    }
   }
 };
