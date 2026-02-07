@@ -69,6 +69,7 @@ function AppContent() {
   const [showCategoryBrowser, setShowCategoryBrowser] = useState(false);
   const [cartItems, setCartItems] = useState<CartItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
+  const [bestSellerProducts, setBestSellerProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'baby' | 'pharmaceutical'>('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string | null>(null);
@@ -169,6 +170,22 @@ function AppContent() {
 
     return () => clearTimeout(timeoutId);
   }, [currentPage, selectedCategory, selectedCategoryId, selectedSubcategoryId, searchQuery]);
+
+  // Load all bestseller products (not paginated)
+  useEffect(() => {
+    const loadBestSellers = async () => {
+      try {
+        const allProducts = await productsService.getAll();
+        const bestSellers = allProducts.filter(p => p.badge === 'Best Seller');
+        setBestSellerProducts(bestSellers);
+      } catch (error) {
+        console.error('Failed to load bestsellers:', error);
+        setBestSellerProducts([]);
+      }
+    };
+
+    loadBestSellers();
+  }, []);
 
   // Load cart and wishlist on login
   useEffect(() => {
@@ -389,15 +406,15 @@ function AppContent() {
             {/* Show featured sections only if no filters are active */}
             {selectedCategory === 'all' && !selectedCategoryId && !selectedSubcategoryId && !searchQuery && (
               <FeaturedSection
-                products={products}
+                products={bestSellerProducts}
                 isLoggedIn={isLoggedIn}
                 onAddToCart={(productId) => {
-                  const product = products.find(p => p.id === productId);
+                  const product = bestSellerProducts.find(p => p.id === productId) || products.find(p => p.id === productId);
                   if (product) handleAddToCart(product);
                 }}
                 onLoginPrompt={handleLoginPrompt}
                 onProductClick={(productId) => {
-                  const product = products.find(p => p.id === productId);
+                  const product = bestSellerProducts.find(p => p.id === productId) || products.find(p => p.id === productId);
                   if (product) handleProductClick(product);
                 }}
               />

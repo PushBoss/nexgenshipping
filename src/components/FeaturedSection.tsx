@@ -17,7 +17,8 @@ export function FeaturedSection({
   onLoginPrompt,
   onProductClick,
 }: FeaturedSectionProps) {
-  const bestSellers = products.filter((p) => p.badge === 'Best Seller');
+  // All passed products should be bestsellers already
+  const bestSellers = products;
   const onSale = products.filter((p) => p.originalPrice).slice(0, 4);
 
   // Carousel state for best sellers
