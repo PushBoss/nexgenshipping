@@ -679,11 +679,18 @@ function AppContent() {
                   });
                   setProducts(loadedProducts);
                   setTotalProducts(count);
+
+                  // Reload featured products after update
+                  const allProducts = await productsService.getAll();
+                  const bestSellers = allProducts.filter(p => p.badge === 'Best Seller');
+                  const onSale = allProducts.filter(p => p.originalPrice && p.originalPrice > 0);
+                  setBestSellerProducts(bestSellers);
+                  setOnSaleProducts(onSale);
+
                   toast.success('Product updated successfully');
                 } catch (error) {
                   console.error('Failed to update product:', error);
                   toast.error('Failed to update product');
-                  throw error;
                 }
               }}
               onDeleteProduct={async (id) => {
@@ -700,11 +707,18 @@ function AppContent() {
                   });
                   setProducts(loadedProducts);
                   setTotalProducts(count);
+
+                  // Reload featured products after delete
+                  const allProducts = await productsService.getAll();
+                  const bestSellers = allProducts.filter(p => p.badge === 'Best Seller');
+                  const onSale = allProducts.filter(p => p.originalPrice && p.originalPrice > 0);
+                  setBestSellerProducts(bestSellers);
+                  setOnSaleProducts(onSale);
+
                   toast.success('Product deleted successfully');
                 } catch (error) {
                   console.error('Failed to delete product:', error);
                   toast.error('Failed to delete product');
-                  throw error;
                 }
               }}
               onCreateSale={async (productId, discountPercent) => {
@@ -719,7 +733,9 @@ function AppContent() {
                     price: newPrice,
                     originalPrice: product.price
                   });
-                  // Reload products
+
+                  // Reload all product data
+                  // 1. Reload current page products
                   const { products: loadedProducts, count } = await productsService.getProducts({
                     page: currentPage,
                     limit: ITEMS_PER_PAGE,
@@ -730,11 +746,18 @@ function AppContent() {
                   });
                   setProducts(loadedProducts);
                   setTotalProducts(count);
+
+                  // 2. Reload all products for admin and featured sections
+                  const allProducts = await productsService.getAll();
+                  const bestSellers = allProducts.filter(p => p.badge === 'Best Seller');
+                  const onSale = allProducts.filter(p => p.originalPrice && p.originalPrice > 0);
+                  setBestSellerProducts(bestSellers);
+                  setOnSaleProducts(onSale);
+
                   toast.success(`Sale applied: ${discountPercent}% off`);
                 } catch (error) {
                   console.error('Failed to create sale:', error);
                   toast.error('Failed to create sale');
-                  throw error;
                 }
               }}
             />
