@@ -3,7 +3,8 @@ import { TrendingUp, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
 interface FeaturedSectionProps {
-  products: Product[];
+  bestsellers: Product[];
+  onSaleItems: Product[];
   isLoggedIn: boolean;
   onAddToCart: (productId: string) => void;
   onLoginPrompt: () => void;
@@ -11,54 +12,72 @@ interface FeaturedSectionProps {
 }
 
 export function FeaturedSection({
-  products,
+  bestsellers,
+  onSaleItems,
   isLoggedIn,
   onAddToCart,
   onLoginPrompt,
   onProductClick,
 }: FeaturedSectionProps) {
-  // All passed products should be bestsellers already
-  const bestSellers = products;
-  const onSale = products.filter((p) => p.originalPrice).slice(0, 4);
-
   // Carousel state for best sellers
   const [bestSellerCarouselIndex, setBestSellerCarouselIndex] = useState(0);
+  const [onSaleCarouselIndex, setOnSaleCarouselIndex] = useState(0);
 
-  // Get 4 visible items for carousel display (or fewer if less than 4 unique items)
-  const getCarouselItems = () => {
-    if (bestSellers.length === 0) return [];
+  // Get carousel items for bestsellers
+  const getBestSellerItems = () => {
+    if (bestsellers.length === 0) return [];
+    if (bestsellers.length <= 4) return bestsellers;
     
-    // If we have fewer than 4 items, just show what we have without repeating
-    if (bestSellers.length <= 4) {
-      return bestSellers;
-    }
-    
-    // If we have more than 4, show 4 in rotation
     const items = [];
     for (let i = 0; i < 4; i++) {
-      items.push(bestSellers[(bestSellerCarouselIndex + i) % bestSellers.length]);
+      items.push(bestsellers[(bestSellerCarouselIndex + i) % bestsellers.length]);
     }
     return items;
   };
 
-  const carouselItems = getCarouselItems();
+  // Get carousel items for on-sale products
+  const getOnSaleItems = () => {
+    if (onSaleItems.length === 0) return [];
+    if (onSaleItems.length <= 4) return onSaleItems;
+    
+    const items = [];
+    for (let i = 0; i < 4; i++) {
+      items.push(onSaleItems[(onSaleCarouselIndex + i) % onSaleItems.length]);
+    }
+    return items;
+  };
+
+  const bestSellerItems = getBestSellerItems();
+  const saleItems = getOnSaleItems();
 
   const handlePreviousBestSellers = () => {
     setBestSellerCarouselIndex((prev) => 
-      prev === 0 ? bestSellers.length - 1 : prev - 1
+      prev === 0 ? bestsellers.length - 1 : prev - 1
     );
   };
 
   const handleNextBestSellers = () => {
     setBestSellerCarouselIndex((prev) => 
-      (prev + 1) % bestSellers.length
+      (prev + 1) % bestsellers.length
+    );
+  };
+
+  const handlePreviousOnSale = () => {
+    setOnSaleCarouselIndex((prev) => 
+      prev === 0 ? onSaleItems.length - 1 : prev - 1
+    );
+  };
+
+  const handleNextOnSale = () => {
+    setOnSaleCarouselIndex((prev) => 
+      (prev + 1) % onSaleItems.length
     );
   };
 
   return (
     <div className="space-y-8 mb-8">
       {/* Best Sellers Carousel */}
-      {bestSellers.length > 0 && (
+      {bestsellers.length > 0 && (
         <div className="bg-white rounded-lg shadow-sm p-4 md:p-6">
           <div className="flex items-center gap-3 mb-6">
             <div className="bg-[#DC143C] w-10 h-10 rounded-full flex items-center justify-center">
@@ -72,7 +91,7 @@ export function FeaturedSection({
           
           <div className="relative">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {carouselItems.map((product) => (
+              {bestSellerItems.map((product) => (
                 <ProductCard
                   key={product.id}
                   product={product}
@@ -85,7 +104,7 @@ export function FeaturedSection({
             </div>
 
             {/* Carousel Controls */}
-            {bestSellers.length > 1 && (
+            {bestsellers.length > 1 && (
               <div className="flex items-center justify-between mt-6">
                 <button
                   onClick={handlePreviousBestSellers}
@@ -96,7 +115,7 @@ export function FeaturedSection({
                 </button>
 
                 <div className="text-sm text-gray-600 text-center">
-                  Showing {bestSellerCarouselIndex + 1}-{Math.min(bestSellerCarouselIndex + 4, bestSellers.length)} of {bestSellers.length}
+                  Showing {bestSellerCarouselIndex + 1}-{Math.min(bestSellerCarouselIndex + 4, bestsellers.length)} of {bestsellers.length}
                 </div>
 
                 <button
@@ -112,8 +131,8 @@ export function FeaturedSection({
         </div>
       )}
 
-      {/* On Sale */}
-      {onSale.length > 0 && (
+      {/* On Sale Carousel */}
+      {onSaleItems.length > 0 && (
         <div className="bg-gradient-to-r from-orange-50 to-red-50 rounded-lg shadow-sm p-4 md:p-6 border-2 border-[#FF9900]">
           <div className="flex items-center gap-3 mb-6">
             <div className="bg-[#FF9900] w-10 h-10 rounded-full flex items-center justify-center">
@@ -125,17 +144,44 @@ export function FeaturedSection({
             </div>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {onSale.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                isLoggedIn={isLoggedIn}
-                onAddToCart={onAddToCart}
-                onLoginPrompt={onLoginPrompt}
-                onProductClick={onProductClick}
-              />
-            ))}
+          <div className="relative">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              {saleItems.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  isLoggedIn={isLoggedIn}
+                  onAddToCart={onAddToCart}
+                  onLoginPrompt={onLoginPrompt}
+                  onProductClick={onProductClick}
+                />
+              ))}
+            </div>
+
+            {/* Carousel Controls */}
+            {onSaleItems.length > 1 && (
+              <div className="flex items-center justify-between mt-6">
+                <button
+                  onClick={handlePreviousOnSale}
+                  className="p-2 rounded-full bg-[#FF9900] hover:bg-[#E68900] text-white transition-all duration-200 hover:scale-110"
+                  aria-label="Previous sale items"
+                >
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+
+                <div className="text-sm text-gray-600 text-center">
+                  Showing {onSaleCarouselIndex + 1}-{Math.min(onSaleCarouselIndex + 4, onSaleItems.length)} of {onSaleItems.length}
+                </div>
+
+                <button
+                  onClick={handleNextOnSale}
+                  className="p-2 rounded-full bg-[#FF9900] hover:bg-[#E68900] text-white transition-all duration-200 hover:scale-110"
+                  aria-label="Next sale items"
+                >
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

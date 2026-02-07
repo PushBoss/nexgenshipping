@@ -53,6 +53,10 @@ export function AdminPage({
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<'all' | 'baby' | 'pharmaceutical'>('all');
 
+  // Sales tab pagination state
+  const [salesCurrentPage, setSalesCurrentPage] = useState(1);
+  const SALES_ITEMS_PER_PAGE = 10;
+
   // Admin products state - fetch all products for admin management
   const [adminAllProducts, setAdminAllProducts] = useState<Product[]>([]);
   const [adminIsLoadingProducts, setAdminIsLoadingProducts] = useState(false);
@@ -132,6 +136,11 @@ export function AdminPage({
   // Reset to first page when filters change
   useEffect(() => {
     setAdminCurrentPage(1);
+  }, [searchQuery, categoryFilter]);
+
+  // Reset sales page when filters change
+  useEffect(() => {
+    setSalesCurrentPage(1);
   }, [searchQuery, categoryFilter]);
 
   // Helper: upload image to Supabase storage with unique filename
@@ -2033,116 +2042,144 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                       No products found. Try a different search term or change the category filter.
                     </div>
                   ) : (
-                    filteredProducts.map((product) => (
-                      <div
-                        key={product.id}
-                        className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4"
-                      >
-                        <div className="flex items-center gap-3 flex-1">
-                          {product.image && (
-                            <img
-                              src={product.image}
-                              alt={product.name}
-                              className="w-12 h-12 object-cover rounded"
-                            />
-                          )}
-                          <div>
-                            <div className="font-medium">{product.name}</div>
-                            <div className="text-sm">
-                              {product.originalPrice ? (
-                                <div className="flex items-center gap-2">
-                                  <span className="line-through text-gray-500">${product.originalPrice.toFixed(2)}</span>
-                                  <span className="text-[#DC143C]">${product.price.toFixed(2)}</span>
-                                  <Badge className="bg-green-500">
-                                    {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
-                                  </Badge>
-                                </div>
-                              ) : (
-                                <span className="text-gray-600">${product.price.toFixed(2)}</span>
+                    <>
+                      {filteredProducts
+                        .slice((salesCurrentPage - 1) * SALES_ITEMS_PER_PAGE, salesCurrentPage * SALES_ITEMS_PER_PAGE)
+                        .map((product) => (
+                          <div
+                            key={product.id}
+                            className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4"
+                          >
+                            <div className="flex items-center gap-3 flex-1">
+                              {product.image && (
+                                <img
+                                  src={product.image}
+                                  alt={product.name}
+                                  className="w-12 h-12 object-cover rounded"
+                                />
                               )}
+                              <div>
+                                <div className="font-medium">{product.name}</div>
+                                <div className="text-sm">
+                                  {product.originalPrice ? (
+                                    <div className="flex items-center gap-2">
+                                      <span className="line-through text-gray-500">${product.originalPrice.toFixed(2)}</span>
+                                      <span className="text-[#DC143C]">${product.price.toFixed(2)}</span>
+                                      <Badge className="bg-green-500">
+                                        {Math.round(((product.originalPrice - product.price) / product.originalPrice) * 100)}% OFF
+                                      </Badge>
+                                    </div>
+                                  ) : (
+                                    <span className="text-gray-600">${product.price.toFixed(2)}</span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        </div>
 
-                        <div className="flex gap-2">
-                          {product.originalPrice ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => {
-                                onUpdateProduct(product.id, {
-                                  price: product.originalPrice,
-                                  originalPrice: undefined,
-                                });
-                                toast.success('Sale removed');
-                              }}
-                            >
-                              Remove Sale
-                            </Button>
-                          ) : (
-                            <Dialog open={isSaleDialogOpen && saleProduct?.id === product.id} onOpenChange={(open) => {
-                              setIsSaleDialogOpen(open);
-                              if (!open) setSaleProduct(null);
-                            }}>
-                              <DialogTrigger asChild>
+                            <div className="flex gap-2">
+                              {product.originalPrice ? (
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => setSaleProduct(product)}
+                                  onClick={() => {
+                                    onUpdateProduct(product.id, {
+                                      price: product.originalPrice,
+                                      originalPrice: undefined,
+                                    });
+                                    toast.success('Sale removed');
+                                  }}
+                                  className="bg-red-50 text-red-700 hover:bg-red-100 border-red-200"
                                 >
-                                  <Percent className="h-4 w-4 mr-2" />
-                                  Create Sale
+                                  Cancel Sale
                                 </Button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>Create Sale</DialogTitle>
-                                  <DialogDescription>
-                                    Set a discount percentage for this product.
-                                  </DialogDescription>
-                                </DialogHeader>
-                                <div className="space-y-4 py-4">
-                                  <div>
-                                    <p className="text-sm text-gray-600 mb-2">Product: {product.name}</p>
-                                    <p className="text-sm text-gray-600">Current Price: ${product.price.toFixed(2)}</p>
-                                  </div>
-                                  <div className="grid gap-2">
-                                    <Label htmlFor="discount">Discount Percentage</Label>
-                                    <div className="flex gap-2">
-                                      <Input
-                                        id="discount"
-                                        type="number"
-                                        min="1"
-                                        max="99"
-                                        value={discountPercent}
-                                        onChange={(e) => setDiscountPercent(e.target.value)}
-                                      />
-                                      <span className="flex items-center text-gray-600">%</span>
+                              ) : (
+                                <Dialog open={isSaleDialogOpen && saleProduct?.id === product.id} onOpenChange={(open) => {
+                                  setIsSaleDialogOpen(open);
+                                  if (!open) setSaleProduct(null);
+                                }}>
+                                  <DialogTrigger asChild>
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={() => setSaleProduct(product)}
+                                    >
+                                      <Percent className="h-4 w-4 mr-2" />
+                                      Create Sale
+                                    </Button>
+                                  </DialogTrigger>
+                                  <DialogContent>
+                                    <DialogHeader>
+                                      <DialogTitle>Create Sale</DialogTitle>
+                                      <DialogDescription>
+                                        Set a discount percentage for this product.
+                                      </DialogDescription>
+                                    </DialogHeader>
+                                    <div className="space-y-4 py-4">
+                                      <div>
+                                        <p className="text-sm text-gray-600 mb-2">Product: {product.name}</p>
+                                        <p className="text-sm text-gray-600">Current Price: ${product.price.toFixed(2)}</p>
+                                      </div>
+                                      <div className="grid gap-2">
+                                        <Label htmlFor="discount">Discount Percentage</Label>
+                                        <div className="flex gap-2">
+                                          <Input
+                                            id="discount"
+                                            type="number"
+                                            min="1"
+                                            max="99"
+                                            value={discountPercent}
+                                            onChange={(e) => setDiscountPercent(e.target.value)}
+                                          />
+                                          <span className="flex items-center text-gray-600">%</span>
+                                        </div>
+                                        {discountPercent && (
+                                          <p className="text-sm text-[#DC143C]">
+                                            New Price: ${(product.price * (1 - parseFloat(discountPercent) / 100)).toFixed(2)}
+                                          </p>
+                                        )}
+                                      </div>
                                     </div>
-                                    {discountPercent && (
-                                      <p className="text-sm text-[#DC143C]">
-                                        New Price: ${(product.price * (1 - parseFloat(discountPercent) / 100)).toFixed(2)}
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                                <div className="flex justify-end gap-2">
-                                  <Button variant="outline" onClick={() => {
-                                    setIsSaleDialogOpen(false);
-                                    setSaleProduct(null);
-                                  }}>
-                                    Cancel
-                                  </Button>
-                                  <Button onClick={() => onCreateSale(product.id, 0)} className="bg-[#DC143C] hover:bg-[#B01030]">
-                                    Apply Sale
-                                  </Button>
-                                </div>
-                              </DialogContent>
-                            </Dialog>
-                          )}
+                                    <div className="flex justify-end gap-2">
+                                      <Button variant="outline" onClick={() => {
+                                        setIsSaleDialogOpen(false);
+                                        setSaleProduct(null);
+                                      }}>
+                                        Cancel
+                                      </Button>
+                                      <Button onClick={() => onCreateSale(product.id, parseFloat(discountPercent) || 0)} className="bg-[#DC143C] hover:bg-[#B01030]">
+                                        Apply Sale
+                                      </Button>
+                                    </div>
+                                  </DialogContent>
+                                </Dialog>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+
+                      {/* Pagination Controls */}
+                      {filteredProducts.length > SALES_ITEMS_PER_PAGE && (
+                        <div className="flex justify-center items-center gap-2 mt-8 py-4 border-t border-gray-100">
+                          <button
+                            onClick={() => setSalesCurrentPage(prev => Math.max(prev - 1, 1))}
+                            disabled={salesCurrentPage === 1}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Previous
+                          </button>
+                          <span className="text-sm text-gray-600">
+                            Page {salesCurrentPage} of {Math.ceil(filteredProducts.length / SALES_ITEMS_PER_PAGE)}
+                          </span>
+                          <button
+                            onClick={() => setSalesCurrentPage(prev => prev + 1)}
+                            disabled={salesCurrentPage >= Math.ceil(filteredProducts.length / SALES_ITEMS_PER_PAGE)}
+                            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Next
+                          </button>
                         </div>
-                      </div>
-                    ))
+                      )}
+                    </>
                   )}
                 </div>
               </CardContent>
