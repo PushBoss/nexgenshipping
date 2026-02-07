@@ -198,23 +198,6 @@ export async function updateExchangeRates(): Promise<void> {
     // Continue with existing rates
   }
 }
-      } else {
-        console.warn(`Exchange rate API returned status ${response.status}, using cached/fallback rates`);
-      }
-    } catch (apiError) {
-      // Silently fail and use cached/fallback rates - don't spam console in production
-      if (config.debugMode || window.location.search.includes('debug=true')) {
-        console.warn('Failed to fetch exchange rates from API, using cached/fallback rates:', apiError);
-      }
-    }
-
-    // Fallback: Use static rates if API fails
-    console.log('Using static exchange rates');
-  } catch (error) {
-    console.error('Failed to update exchange rates:', error);
-    // Continue with existing rates
-  }
-}
 
 /**
  * Get current exchange rates (may trigger update if cache expired)
