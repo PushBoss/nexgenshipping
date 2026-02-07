@@ -1,11 +1,13 @@
 import { ProductCard, Product } from './ProductCard';
 import { TrendingUp, Tag, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
+import { Currency } from '../utils/currencyService';
 
 interface FeaturedSectionProps {
   bestsellers: Product[];
   onSaleItems: Product[];
   isLoggedIn: boolean;
+  selectedCurrency?: Currency;
   onAddToCart: (productId: string) => void;
   onLoginPrompt: () => void;
   onProductClick: (productId: string) => void;
@@ -15,6 +17,7 @@ export function FeaturedSection({
   bestsellers,
   onSaleItems,
   isLoggedIn,
+  selectedCurrency = 'USD',
   onAddToCart,
   onLoginPrompt,
   onProductClick,
@@ -96,6 +99,7 @@ export function FeaturedSection({
                   key={product.id}
                   product={product}
                   isLoggedIn={isLoggedIn}
+                  selectedCurrency={selectedCurrency}
                   onAddToCart={onAddToCart}
                   onLoginPrompt={onLoginPrompt}
                   onProductClick={onProductClick}
@@ -151,6 +155,7 @@ export function FeaturedSection({
                   key={product.id}
                   product={product}
                   isLoggedIn={isLoggedIn}
+                  selectedCurrency={selectedCurrency}
                   onAddToCart={onAddToCart}
                   onLoginPrompt={onLoginPrompt}
                   onProductClick={onProductClick}

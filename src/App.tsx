@@ -413,6 +413,7 @@ function AppContent() {
                 bestsellers={bestSellerProducts}
                 onSaleItems={onSaleProducts}
                 isLoggedIn={isLoggedIn}
+                selectedCurrency={selectedCurrency}
                 onAddToCart={(productId) => {
                   const product = bestSellerProducts.find(p => p.id === productId) || onSaleProducts.find(p => p.id === productId) || products.find(p => p.id === productId);
                   if (product) handleAddToCart(product);
