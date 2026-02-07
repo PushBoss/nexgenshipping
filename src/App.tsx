@@ -723,7 +723,8 @@ function AppContent() {
               }}
               onCreateSale={async (productId, discountPercent) => {
                 try {
-                  const product = products.find(p => p.id === productId);
+                  // Load product directly from database instead of searching in current page
+                  const product = await productsService.getById(productId);
                   if (!product) {
                     toast.error('Product not found');
                     return;

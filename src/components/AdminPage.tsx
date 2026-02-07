@@ -2092,12 +2092,15 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => {
-                                    onUpdateProduct(product.id, {
-                                      price: product.originalPrice,
-                                      originalPrice: undefined,
-                                    });
-                                    toast.success('Sale removed');
+                                  onClick={async () => {
+                                    try {
+                                      await onUpdateProduct(product.id, {
+                                        price: product.originalPrice,
+                                        originalPrice: null,
+                                      });
+                                    } catch (error) {
+                                      console.error('Failed to cancel sale:', error);
+                                    }
                                   }}
                                   className="bg-red-50 text-red-700 hover:bg-red-100 border-red-200"
                                 >
