@@ -18,7 +18,7 @@ export const reviewsService = {
   async getByProductId(productId: string): Promise<Review[]> {
     try {
       const { data, error } = await supabase
-        .from('reviews')
+        .from('product_reviews')
         .select(`
           *,
           user_profiles:user_id(avatar_url)
@@ -45,7 +45,7 @@ export const reviewsService = {
   async addReview(review: Omit<Review, 'id' | 'created_at'>): Promise<Review | null> {
     try {
       const { data, error } = await supabase
-        .from('reviews')
+        .from('product_reviews')
         .insert(review)
         .select()
         .single();
@@ -64,7 +64,7 @@ export const reviewsService = {
   async getUserReview(productId: string, userId: string): Promise<Review | null> {
     try {
       const { data, error } = await supabase
-        .from('reviews')
+        .from('product_reviews')
         .select(`
           *,
           user_profiles:user_id(avatar_url)
@@ -94,7 +94,7 @@ export const reviewsService = {
   async deleteReview(reviewId: string): Promise<void> {
     try {
       const { error } = await supabase
-        .from('reviews')
+        .from('product_reviews')
         .delete()
         .eq('id', reviewId);
 
@@ -111,7 +111,7 @@ export const reviewsService = {
   async getAverageRating(productId: string): Promise<{ averageRating: number; reviewCount: number }> {
     try {
       const { data, error } = await supabase
-        .from('reviews')
+        .from('product_reviews')
         .select('rating')
         .eq('product_id', productId);
 
