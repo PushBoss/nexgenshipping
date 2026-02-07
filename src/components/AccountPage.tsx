@@ -386,15 +386,15 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
 
                 {/* Avatar Section - Simple and Clean */}
                 <div className="mb-12 py-8 border-b border-gray-200">
-                  <div className="flex flex-col items-center gap-6">
-                    <Avatar className="h-40 w-40 border-4 border-[#003366] shadow-lg">
+                  <div className="flex flex-col items-center justify-center gap-8 w-full">
+                    <Avatar className="h-52 w-52 border-4 border-[#003366] shadow-lg mx-auto">
                       <AvatarImage src={avatarUrl || undefined} alt={`${accountInfo.firstName} ${accountInfo.lastName}`} />
-                      <AvatarFallback className="bg-gradient-to-br from-[#003366] to-[#0055AA] text-white text-6xl font-bold">
+                      <AvatarFallback className="bg-gradient-to-br from-[#003366] to-[#0055AA] text-white text-8xl font-bold">
                         {getInitials(accountInfo.firstName, accountInfo.lastName)}
                       </AvatarFallback>
                     </Avatar>
                     
-                    <div className="flex gap-3">
+                    <div className="flex gap-3 justify-center">
                       <label className="relative">
                         <input
                           type="file"
@@ -429,7 +429,7 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
                         </Button>
                       )}
                     </div>
-                    {avatarUrl && <p className="text-sm text-green-600 font-medium">✅ Photo appears on your reviews</p>}
+                    {avatarUrl && <p className="text-sm text-green-600 font-medium text-center">✅ Photo appears on your reviews</p>}
                   </div>
                 </div>
 
