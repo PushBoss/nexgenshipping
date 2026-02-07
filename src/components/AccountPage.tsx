@@ -387,7 +387,7 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
                 {/* Avatar Section - Simple and Clean */}
                 <div className="mb-12 py-8 border-b border-gray-200">
                   <div className="flex flex-col items-center justify-center gap-6 w-full">
-                    <Avatar className="h-32 w-32 border-4 border-[#003366] shadow-lg mx-auto">
+                    <Avatar className="h-40 w-40 border-4 border-[#003366] shadow-lg mx-auto">
                       <AvatarImage src={avatarUrl || undefined} alt={`${accountInfo.firstName} ${accountInfo.lastName}`} />
                       <AvatarFallback className="bg-gradient-to-br from-[#003366] to-[#0055AA] text-white text-4xl font-bold">
                         {getInitials(accountInfo.firstName, accountInfo.lastName)}
@@ -412,7 +412,7 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
                           disabled={avatarUpdating}
                           className="bg-[#003366] hover:bg-[#001f47] text-white font-semibold shadow-md px-6"
                         >
-                          <Camera className="h-4 w-4 mr-2" />
+                          <Camera className="h-6 w-6 mr-2" />
                           {avatarUpdating ? 'Uploading...' : 'Upload Photo'}
                         </Button>
                       </label>
@@ -424,7 +424,7 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
                           variant="outline"
                           className="text-red-600 border-red-300 hover:bg-red-50 font-semibold border-2 px-6"
                         >
-                          <Trash2 className="h-4 w-4 mr-2" />
+                          <Trash2 className="h-6 w-6 mr-2" />
                           Remove
                         </Button>
                       )}
