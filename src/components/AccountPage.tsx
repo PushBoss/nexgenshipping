@@ -387,9 +387,9 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
                 {/* Avatar Section - Simple and Clean */}
                 <div className="mb-12 py-8 border-b border-gray-200">
                   <div className="flex flex-col items-center justify-center gap-6 w-full">
-                    <Avatar className="h-40 w-40 border-4 border-[#003366] shadow-lg mx-auto">
+                    <Avatar className="h-40 w-40 border-4 border-[#003366] shadow-lg flex-shrink-0">
                       <AvatarImage src={avatarUrl || undefined} alt={`${accountInfo.firstName} ${accountInfo.lastName}`} />
-                      <AvatarFallback className="bg-gradient-to-br from-[#003366] to-[#0055AA] text-white text-6xl font-bold">
+                      <AvatarFallback className="w-full h-full bg-gradient-to-br from-[#003366] to-[#0055AA] text-white text-6xl font-bold flex items-center justify-center">
                         {getInitials(accountInfo.firstName, accountInfo.lastName)}
                       </AvatarFallback>
                     </Avatar>
