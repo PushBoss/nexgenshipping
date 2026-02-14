@@ -117,11 +117,13 @@ export function Footer({ onNavigate }: FooterProps) {
             <ul className="space-y-4 text-sm">
               <li className="flex items-start gap-3">
                 <MapPin className="h-5 w-5 text-[#FF9900] shrink-0" />
-                <span>123 Shipping Lane,<br />Main Street, Kingston,<br />Jamaica</span>
+                <span>252 Citrine Loop, 
+<br />Kissimmee,<br />Florida 
+34758</span>
               </li>
               <li className="flex items-center gap-3">
                 <Phone className="h-5 w-5 text-[#FF9900] shrink-0" />
-                <span>(876) 123-4567</span>
+                <span>(689) 680-1264</span>
               </li>
               <li className="flex items-center gap-3">
                 <Mail className="h-5 w-5 text-[#FF9900] shrink-0" />
@@ -135,7 +137,7 @@ export function Footer({ onNavigate }: FooterProps) {
       {/* Bottom Footer */}
       <div className="border-t border-gray-700">
         <div className="max-w-[1500px] mx-auto px-4 md:px-8 py-6 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-500">
-          <p>&copy; {new Date().getFullYear()} NEX-GEN Shipping Agency. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} NEX-GEN Shipping Agency 2026 ©. All rights reserved.</p>
           <div className="flex gap-6">
             <button onClick={() => handleLinkClick('/privacy-policy')} className="hover:text-white transition-colors">Privacy Policy</button>
             <button onClick={() => handleLinkClick('/return-policy')} className="hover:text-white transition-colors">Terms of Service</button>
