@@ -1,4 +1,4 @@
-import { Star, ShoppingCart, Lock } from 'lucide-react';
+import { Star, ShoppingCart, Lock, Heart } from 'lucide-react';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { ImageWithFallback } from './figma/ImageWithFallback';
@@ -32,6 +32,8 @@ interface ProductCardProps {
   onAddToCart: (productId: string) => void;
   onLoginPrompt: () => void;
   onProductClick?: (productId: string) => void;
+  isInWishlist?: boolean;
+  onToggleWishlist?: (productId: string) => void;
   selectedCurrency?: Currency;
 }
 
@@ -41,6 +43,8 @@ export function ProductCard({
   onAddToCart,
   onLoginPrompt,
   onProductClick,
+  isInWishlist = false,
+  onToggleWishlist,
   selectedCurrency = 'USD',
 }: ProductCardProps) {
   const [calculatedRating, setCalculatedRating] = useState(product.rating);
@@ -71,6 +75,21 @@ export function ProductCard({
         className="relative mb-3 overflow-hidden rounded cursor-pointer bg-white"
         onClick={() => onProductClick?.(product.id)}
       >
+        {onToggleWishlist && (
+          <button
+            onClick={(event) => {
+              event.stopPropagation();
+              onToggleWishlist(product.id);
+            }}
+            className="absolute top-2 right-2 z-10 bg-white/95 hover:bg-white rounded-full p-2 shadow-md transition-colors"
+            title={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+            aria-label={isInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+          >
+            <Heart
+              className={`h-5 w-5 transition-colors ${isInWishlist ? 'text-[#DC143C] fill-[#DC143C]' : 'text-gray-500'}`}
+            />
+          </button>
+        )}
         <ImageWithFallback
           src={product.image}
           alt={product.name}

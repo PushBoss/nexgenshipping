@@ -6,7 +6,7 @@ import { WishlistItem } from '../utils/wishlistService';
 
 interface WishlistPageProps {
   wishlistItems: WishlistItem[];
-  onRemoveFromWishlist: (productId: string) => void;
+  onRemoveFromWishlist: (wishlistItemId: string) => void;
   onAddToCart: (product: any) => void;
   onProductClick: (product: any) => void;
 }
@@ -76,7 +76,7 @@ export function WishlistPage({
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onRemoveFromWishlist(item.product_id);
+                  onRemoveFromWishlist(item.id);
                 }}
                 className="absolute top-2 right-2 bg-white hover:bg-red-50 rounded-full p-2 shadow-md transition-colors"
                 title="Remove from wishlist"
@@ -142,7 +142,7 @@ export function WishlistPage({
                   Add to Cart
                 </Button>
                 <Button
-                  onClick={() => onRemoveFromWishlist(item.product_id)}
+                  onClick={() => onRemoveFromWishlist(item.id)}
                   variant="outline"
                   className="w-full border-gray-300 hover:bg-red-50 hover:border-red-300 hover:text-red-600 transition-colors"
                 >

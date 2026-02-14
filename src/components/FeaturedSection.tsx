@@ -11,6 +11,8 @@ interface FeaturedSectionProps {
   onAddToCart: (productId: string) => void;
   onLoginPrompt: () => void;
   onProductClick: (productId: string) => void;
+  isInWishlist?: (productId: string) => boolean;
+  onToggleWishlist?: (productId: string) => void;
 }
 
 export function FeaturedSection({
@@ -21,6 +23,8 @@ export function FeaturedSection({
   onAddToCart,
   onLoginPrompt,
   onProductClick,
+  isInWishlist,
+  onToggleWishlist,
 }: FeaturedSectionProps) {
   // Carousel state for best sellers
   const [bestSellerCarouselIndex, setBestSellerCarouselIndex] = useState(0);
@@ -103,6 +107,8 @@ export function FeaturedSection({
                   onAddToCart={onAddToCart}
                   onLoginPrompt={onLoginPrompt}
                   onProductClick={onProductClick}
+                  isInWishlist={isInWishlist?.(product.id)}
+                  onToggleWishlist={onToggleWishlist}
                 />
               ))}
             </div>
@@ -159,6 +165,8 @@ export function FeaturedSection({
                   onAddToCart={onAddToCart}
                   onLoginPrompt={onLoginPrompt}
                   onProductClick={onProductClick}
+                  isInWishlist={isInWishlist?.(product.id)}
+                  onToggleWishlist={onToggleWishlist}
                 />
               ))}
             </div>

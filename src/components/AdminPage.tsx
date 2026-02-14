@@ -27,11 +27,11 @@ import { publicAnonKey } from '../utils/supabase/info';
 
 interface AdminPageProps {
   products: Product[];
-  onAddProduct: (product: Omit<Product, 'id'>) => void;
+  onAddProduct: (product: Omit<Product, 'id'>) => void | Promise<void>;
   onBulkImport?: (products: Omit<Product, 'id'>[]) => Promise<number>;
-  onUpdateProduct: (id: string, updates: Partial<Product>) => void;
-  onDeleteProduct: (id: string) => void;
-  onCreateSale: (productId: string, discountPercent: number) => void;
+  onUpdateProduct: (id: string, updates: Partial<Product>) => void | Promise<void>;
+  onDeleteProduct: (id: string) => void | Promise<void>;
+  onCreateSale: (productId: string, discountPercent: number) => void | Promise<void>;
 }
 
 export function AdminPage({
@@ -57,6 +57,8 @@ export function AdminPage({
   // Sales tab pagination state
   const [salesCurrentPage, setSalesCurrentPage] = useState(1);
   const SALES_ITEMS_PER_PAGE = 10;
+  const [badgesCurrentPage, setBadgesCurrentPage] = useState(1);
+  const BADGES_ITEMS_PER_PAGE = 12;
 
   // Admin products state - fetch all products for admin management
   const [adminAllProducts, setAdminAllProducts] = useState<Product[]>([]);
@@ -161,6 +163,11 @@ export function AdminPage({
   // Reset sales page when filters change
   useEffect(() => {
     setSalesCurrentPage(1);
+  }, [searchQuery, categoryFilter]);
+
+  // Reset badges page when filters change
+  useEffect(() => {
+    setBadgesCurrentPage(1);
   }, [searchQuery, categoryFilter]);
 
   // Load currency rates
@@ -373,7 +380,7 @@ export function AdminPage({
         imageUrl = await uploadImageToStorage(imageUrl, editingProduct.name);
       }
 
-      onUpdateProduct(editingProduct.id, {
+      await onUpdateProduct(editingProduct.id, {
         name: editingProduct.name,
         category: editingProduct.category,
         categoryId: editingProduct.categoryId,
@@ -382,7 +389,8 @@ export function AdminPage({
         reviewCount: editingProduct.reviewCount,
         image: imageUrl,
         inStock: editingProduct.inStock,
-        badge: editingProduct.badge,
+        // Use null to clear badge in DB when user selects "No Badge"
+        badge: (editingProduct.badge ?? null) as any,
       });
 
       toast.success('Product updated successfully!');
@@ -396,6 +404,25 @@ export function AdminPage({
     } catch (error) {
       console.error('Error updating product:', error);
       toast.error('Failed to update product');
+    }
+  };
+
+  const handleBadgeUpdate = async (product: Product, value: string) => {
+    const nextBadge = value === 'none' ? null : value;
+
+    try {
+      await onUpdateProduct(product.id, { badge: nextBadge as any });
+      setAdminAllProducts((prev) =>
+        prev.map((item) =>
+          item.id === product.id
+            ? { ...item, badge: (nextBadge ?? undefined) as any }
+            : item
+        )
+      );
+      toast.success(nextBadge ? `Badge set to ${nextBadge}` : 'Badge removed');
+    } catch (error) {
+      console.error('Failed to update badge:', error);
+      toast.error('Failed to update badge');
     }
   };
 
@@ -1156,17 +1183,6 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
   const endIndex = startIndex + ADMIN_ITEMS_PER_PAGE;
   const paginatedAdminProducts = filteredAdminProducts.slice(startIndex, endIndex);
 
-  // Keep original filteredProducts for backward compatibility with other tabs
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch = searchQuery.trim() === '' ||
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.id.toLowerCase().includes(searchQuery.toLowerCase());
-
-    const matchesCategory = categoryFilter === 'all' || product.category === categoryFilter;
-
-    return matchesSearch && matchesCategory;
-  });
-
   // Filtered sales products - shows ALL products that have or can have sales
   const filteredSalesProducts = adminAllProducts.filter((product) => {
     const matchesSearch = searchQuery.trim() === '' ||
@@ -1177,6 +1193,12 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
 
     return matchesSearch && matchesCategory;
   });
+
+  // Pagination for badges tab
+  const totalBadgePages = Math.ceil(filteredAdminProducts.length / BADGES_ITEMS_PER_PAGE);
+  const badgeStartIndex = (badgesCurrentPage - 1) * BADGES_ITEMS_PER_PAGE;
+  const badgeEndIndex = badgeStartIndex + BADGES_ITEMS_PER_PAGE;
+  const paginatedBadgeProducts = filteredAdminProducts.slice(badgeStartIndex, badgeEndIndex);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -1977,18 +1999,18 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
 
                   {/* Results count */}
                   <div className="text-sm text-gray-600">
-                    Showing {filteredProducts.length} of {products.length} products
+                    Showing {paginatedBadgeProducts.length === 0 ? 0 : badgeStartIndex + 1}-{Math.min(badgeEndIndex, filteredAdminProducts.length)} of {filteredAdminProducts.length} products (Total in system: {adminAllProducts.length})
                   </div>
                 </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {filteredProducts.length === 0 ? (
+                  {paginatedBadgeProducts.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       No products found. Try a different search term or change the category filter.
                     </div>
                   ) : (
-                    filteredProducts.map((product) => (
+                    paginatedBadgeProducts.map((product) => (
                       <div
                         key={product.id}
                         className="flex flex-col sm:flex-row sm:items-center justify-between p-4 border rounded-lg gap-4"
@@ -2011,10 +2033,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                           <Label className="text-sm text-gray-600 whitespace-nowrap">Badge:</Label>
                           <Select
                             value={product.badge || 'none'}
-                            onValueChange={(value) => {
-                              // TODO: Implement badge update
-                              console.log('Badge update:', product.id, value);
-                            }}
+                            onValueChange={(value) => handleBadgeUpdate(product, value)}
                           >
                             <SelectTrigger className="w-40">
                               <SelectValue placeholder="No badge" />
@@ -2050,6 +2069,28 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                         </div>
                       </div>
                     ))
+                  )}
+
+                  {filteredAdminProducts.length > BADGES_ITEMS_PER_PAGE && (
+                    <div className="flex justify-center items-center gap-2 mt-8 py-4 border-t border-gray-100">
+                      <button
+                        onClick={() => setBadgesCurrentPage(prev => Math.max(prev - 1, 1))}
+                        disabled={badgesCurrentPage === 1}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm text-gray-600">
+                        Page {badgesCurrentPage} of {totalBadgePages}
+                      </span>
+                      <button
+                        onClick={() => setBadgesCurrentPage(prev => prev + 1)}
+                        disabled={badgesCurrentPage >= totalBadgePages}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Next
+                      </button>
+                    </div>
                   )}
                 </div>
               </CardContent>

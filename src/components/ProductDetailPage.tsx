@@ -1,4 +1,4 @@
-import { Star, ShoppingCart, ChevronLeft, Package, Truck, Shield, Lock } from 'lucide-react';
+import { Star, ShoppingCart, ChevronLeft, Package, Truck, Shield, Lock, Heart } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
@@ -15,6 +15,8 @@ interface ProductDetailPageProps {
   isLoggedIn: boolean;
   onAddToCart: (productId: string) => void;
   onBuyNow: (productId: string) => void;
+  onToggleWishlist?: (product: Product) => void;
+  isInWishlist?: (productId: string) => boolean;
   onBack: () => void;
   onLoginPrompt: () => void;
   selectedCurrency?: Currency;
@@ -25,6 +27,8 @@ export function ProductDetailPage({
   isLoggedIn,
   onAddToCart,
   onBuyNow,
+  onToggleWishlist,
+  isInWishlist,
   onBack,
   onLoginPrompt,
   selectedCurrency = 'USD',
@@ -138,6 +142,8 @@ export function ProductDetailPage({
     onBuyNow(displayProduct.id);
   };
 
+  const productInWishlist = isInWishlist?.(displayProduct.id) ?? false;
+
   return (
     <div className="max-w-[1400px] mx-auto px-4 py-6">
       {/* Back Button */}
@@ -191,7 +197,19 @@ export function ProductDetailPage({
         {/* Product Info */}
         <div className="space-y-6">
           <div>
-            <h1 className="text-gray-900 mb-2">{displayProduct.name}</h1>
+            <div className="flex items-start justify-between gap-4 mb-2">
+              <h1 className="text-gray-900">{displayProduct.name}</h1>
+              {onToggleWishlist && (
+                <button
+                  onClick={() => onToggleWishlist(displayProduct)}
+                  className="shrink-0 bg-white hover:bg-gray-50 border border-gray-200 rounded-full p-2 transition-colors"
+                  title={productInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+                  aria-label={productInWishlist ? 'Remove from wishlist' : 'Add to wishlist'}
+                >
+                  <Heart className={`h-5 w-5 ${productInWishlist ? 'text-[#DC143C] fill-[#DC143C]' : 'text-gray-500'}`} />
+                </button>
+              )}
+            </div>
             
             {/* Rating */}
             <div className="flex items-center gap-3 mb-4">

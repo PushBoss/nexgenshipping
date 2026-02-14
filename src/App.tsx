@@ -87,6 +87,10 @@ function AppContent() {
 
   // Sort State
   const [sortBy, setSortBy] = useState<'newest' | 'price-low' | 'price-high' | 'rating'>('newest');
+  const wishlistProductIds = useMemo(
+    () => new Set(wishlistItems.map((item) => item.product_id)),
+    [wishlistItems]
+  );
 
   // Handle currency change
   const handleCurrencyChange = (currency: Currency) => {
@@ -313,8 +317,10 @@ function AppContent() {
     }
   };
 
-  // Handle add to wishlist
-  const handleAddToWishlist = async (product: Product) => {
+  const isProductInWishlist = (productId: string) => wishlistProductIds.has(productId);
+
+  // Handle add/remove wishlist from product cards and detail page
+  const handleToggleWishlist = async (product: Product) => {
     if (!isLoggedIn) {
       handleLoginPrompt();
       return;
@@ -324,14 +330,19 @@ function AppContent() {
       const user = await authService.getCurrentUser();
       if (!user) return;
 
-      await wishlistService.addItem(user.id, product.id);
-      // Reload wishlist to get updated data
+      if (wishlistProductIds.has(product.id)) {
+        await wishlistService.removeByProductId(user.id, product.id);
+        toast.success(`${product.name} removed from wishlist`);
+      } else {
+        await wishlistService.addItem(user.id, product.id);
+        toast.success(`${product.name} added to wishlist`);
+      }
+
       const wishlistData = await wishlistService.getAll(user.id);
       setWishlistItems(wishlistData);
-      toast.success(`${product.name} added to wishlist`);
     } catch (error) {
-      console.error('Failed to add to wishlist:', error);
-      toast.error('Failed to add item to wishlist');
+      console.error('Failed to update wishlist:', error);
+      toast.error('Failed to update wishlist');
     }
   };
 
@@ -418,9 +429,14 @@ function AppContent() {
                 onSaleItems={onSaleProducts}
                 isLoggedIn={isLoggedIn}
                 selectedCurrency={selectedCurrency}
+                isInWishlist={isProductInWishlist}
                 onAddToCart={(productId) => {
                   const product = bestSellerProducts.find(p => p.id === productId) || onSaleProducts.find(p => p.id === productId) || products.find(p => p.id === productId);
                   if (product) handleAddToCart(product);
+                }}
+                onToggleWishlist={(productId) => {
+                  const product = bestSellerProducts.find(p => p.id === productId) || onSaleProducts.find(p => p.id === productId) || products.find(p => p.id === productId);
+                  if (product) handleToggleWishlist(product);
                 }}
                 onLoginPrompt={handleLoginPrompt}
                 onProductClick={(productId) => {
@@ -490,6 +506,11 @@ function AppContent() {
                       onProductClick={(productId) => {
                         const product = products.find(p => p.id === productId);
                         if (product) handleProductClick(product);
+                      }}
+                      isInWishlist={isProductInWishlist(product.id)}
+                      onToggleWishlist={(productId) => {
+                        const product = products.find(p => p.id === productId);
+                        if (product) handleToggleWishlist(product);
                       }}
                       selectedCurrency={selectedCurrency}
                     />
@@ -564,6 +585,8 @@ function AppContent() {
                 navigate('/checkout');
               }
             }}
+            onToggleWishlist={handleToggleWishlist}
+            isInWishlist={isProductInWishlist}
             onBack={() => navigate(-1)}
             onLoginPrompt={handleLoginPrompt}
             selectedCurrency={selectedCurrency}
