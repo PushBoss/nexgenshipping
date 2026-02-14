@@ -40,12 +40,11 @@ export function Footer({ onNavigate }: FooterProps) {
               />
             </div>
             <p className="text-sm leading-relaxed text-gray-400">
-              Your trusted partner for shipping and delivery. We provide fast, reliable, and secure shipping services for all your needs.
+              Your trusted partner for shipping and delivery. <br>
+              </br>We provide fast, reliable, and secure shipping services for all your needs.
             </p>
             <div className="flex gap-4 pt-2">
-              <a href="#" className="hover:text-white transition-colors"><Facebook className="h-5 w-5" /></a>
-              <a href="#" className="hover:text-white transition-colors"><Twitter className="h-5 w-5" /></a>
-              <a href="#" className="hover:text-white transition-colors"><Instagram className="h-5 w-5" /></a>
+              <a href="https://www.instagram.com/ship.nexgen" className="hover:text-white transition-colors"><Instagram className="h-5 w-5" /></a>
             </div>
           </div>
 
@@ -127,7 +126,7 @@ export function Footer({ onNavigate }: FooterProps) {
               </li>
               <li className="flex items-center gap-3">
                 <Mail className="h-5 w-5 text-[#FF9900] shrink-0" />
-                <a href="mailto:support@nexgenshipping.com" className="hover:text-white transition-colors">info@nexgenshipping.com</a>
+                <a href="mailto:shipnexgen@gmail.com" className="hover:text-white transition-colors">info@nexgenshipping.com</a>
               </li>
             </ul>
           </div>
