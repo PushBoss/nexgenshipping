@@ -17,6 +17,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { SupabaseStatus } from './SupabaseStatus';
 import { DataManagementPanel } from './DataManagementPanel';
 import { UserManagementPanel } from './UserManagementPanel';
+import { AdminOrdersPanel } from './AdminOrdersPanel';
 import { supabase } from '../utils/supabaseClient';
 import { supabaseAdmin } from '../utils/supabaseAdminClient';
 import { productsService } from '../utils/productsService';
@@ -1383,6 +1384,10 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
             <TabsTrigger value="users" className="flex-shrink-0">
               <Users className="h-4 w-4 mr-2" />
               Users
+            </TabsTrigger>
+            <TabsTrigger value="orders" className="flex-shrink-0">
+              <Package className="h-4 w-4 mr-2" />
+              Orders
             </TabsTrigger>
             <TabsTrigger value="payment-settings" className="flex-shrink-0">
               <CreditCard className="h-4 w-4 mr-2" />
@@ -3198,6 +3203,10 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
           {/* Users Tab */}
           <TabsContent value="users">
             <UserManagementPanel />
+          </TabsContent>
+
+          <TabsContent value="orders">
+            <AdminOrdersPanel />
           </TabsContent>
 
           {/* Payment Settings Tab */}
