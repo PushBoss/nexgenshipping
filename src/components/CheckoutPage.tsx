@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, Lock, MapPin, User, Package, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Elements } from '@stripe/react-stripe-js';
+import { Stripe } from '@stripe/stripe-js';
+import { CreditCard, Lock, MapPin, Package, ArrowLeft, Loader2 } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -9,9 +11,9 @@ import { Separator } from './ui/separator';
 import { ImageWithFallback } from './figma/ImageWithFallback';
 import { CartItem } from '../utils/cartService';
 import { Currency, convertCurrency, formatCurrency } from '../utils/currencyService';
-import { isDimePayConfigured } from '../utils/dimepayService';
 import { toast } from 'sonner';
-import { DimePayPaymentForm } from './DimePayPaymentForm';
+import { StripePaymentForm } from './StripePaymentForm';
+import { createPaymentIntent, getStripe, isStripeConfigured, toCents } from '../utils/paymentService';
 
 interface CheckoutPageProps {
   cartItems: CartItem[];
@@ -25,7 +27,9 @@ export function CheckoutPage({ cartItems, onUpdateQuantity, onRemoveItem, onOrde
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(1);
   const [shippingMethod, setShippingMethod] = useState('standard');
-  const [dimePayConfigured, setDimePayConfigured] = useState(false);
+  const [clientSecret, setClientSecret] = useState('');
+  const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
+  const [isPreparingPayment, setIsPreparingPayment] = useState(false);
   
   const [shippingInfo, setShippingInfo] = useState({
     fullName: '',
@@ -58,26 +62,45 @@ export function CheckoutPage({ cartItems, onUpdateQuantity, onRemoveItem, onOrde
       : subtotal > shippingThreshold ? 0 : shippingBase;
   const total = subtotal + tax + shippingCost;
 
-  // Check if DimePay is configured
-  useEffect(() => {
-    const checkConfiguration = async () => {
-      const configured = await isDimePayConfigured();
-      setDimePayConfigured(configured);
-    };
-    checkConfiguration();
-  }, []);
-
-  const handleShippingSubmit = (e: React.FormEvent) => {
+  const handleShippingSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (Object.values(shippingInfo).every(val => val.trim())) {
-      if (!dimePayConfigured) {
-        toast.error('Payment gateway not configured. Please configure DimePay in admin settings.');
-        return;
+    if (!Object.values(shippingInfo).every(val => val.trim())) {
+      toast.error('Please fill in all shipping fields');
+      return;
+    }
+
+    if (!isStripeConfigured()) {
+      toast.error('Stripe is not configured. Add your publishable key and Supabase URL, then try again.');
+      return;
+    }
+
+    setIsPreparingPayment(true);
+    setClientSecret('');
+
+    try {
+      const stripe = getStripe();
+      const paymentIntent = await createPaymentIntent({
+        amount: toCents(total),
+        currency: selectedCurrency.toLowerCase(),
+        customerEmail: shippingInfo.email,
+        customerName: shippingInfo.fullName,
+        metadata: {
+          shipping_method: shippingMethod,
+        },
+      });
+
+      if (!paymentIntent.success || !paymentIntent.clientSecret) {
+        throw new Error(paymentIntent.error || 'Failed to prepare Stripe checkout');
       }
+
+      setStripePromise(stripe);
+      setClientSecret(paymentIntent.clientSecret);
       setCurrentStep(2);
       toast.success('Shipping information saved');
-    } else {
-      toast.error('Please fill in all shipping fields');
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to prepare payment');
+    } finally {
+      setIsPreparingPayment(false);
     }
   };
 
@@ -284,20 +307,13 @@ export function CheckoutPage({ cartItems, onUpdateQuantity, onRemoveItem, onOrde
           {/* Step 2: Payment Information */}
           {currentStep === 2 && (
             <div className="bg-white rounded-lg shadow-sm p-6">
-              {!dimePayConfigured ? (
+              {isPreparingPayment ? (
                 <div className="space-y-4">
-                  <div className="flex items-start gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <AlertCircle className="h-5 w-5 text-yellow-600 mt-0.5 shrink-0" />
-                    <div className="text-sm text-yellow-800">
-                      <p className="font-semibold mb-1">DimePay Not Configured</p>
-                      <p>To accept payments, you need to:</p>
-                      <ol className="list-decimal ml-4 mt-2 space-y-1">
-                        <li>Go to Admin Dashboard → Payment Settings</li>
-                        <li>Enter your DimePay Merchant ID, Secret Key, and Client Key</li>
-                        <li>Select environment (Sandbox for testing, Production for live)</li>
-                        <li>Choose fee handling (Merchant absorbs or Customer pays)</li>
-                        <li>Enable the payment gateway</li>
-                      </ol>
+                  <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-200 rounded-lg text-blue-800">
+                    <Loader2 className="h-5 w-5 animate-spin shrink-0" />
+                    <div className="text-sm">
+                      <p className="font-semibold mb-1">Preparing secure payment</p>
+                      <p>Creating your Stripe payment session.</p>
                     </div>
                   </div>
                   <Button
@@ -308,16 +324,37 @@ export function CheckoutPage({ cartItems, onUpdateQuantity, onRemoveItem, onOrde
                     Back to Shipping
                   </Button>
                 </div>
+              ) : !clientSecret || !stripePromise ? (
+                <div className="space-y-4">
+                  <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
+                    Unable to initialize Stripe payment. Go back and try again after deploying the payment function and setting the Stripe secret in Supabase.
+                  </div>
+                  <Button
+                    onClick={() => setCurrentStep(1)}
+                    variant="outline"
+                    className="w-full"
+                  >
+                    Back to Shipping
+                  </Button>
+                </div>
               ) : (
-                <DimePayPaymentForm
-                  amount={total}
-                  currency={selectedCurrency}
-                  customerEmail={shippingInfo.email}
-                  customerName={shippingInfo.fullName}
-                  onSuccess={handlePaymentSuccess}
-                  onBack={() => setCurrentStep(1)}
-                  orderId={`order-${Date.now()}`}
-                />
+                <Elements
+                  stripe={stripePromise}
+                  options={{
+                    clientSecret,
+                    appearance: {
+                      theme: 'stripe',
+                    },
+                  }}
+                >
+                  <StripePaymentForm
+                    amount={total}
+                    customerEmail={shippingInfo.email}
+                    customerName={shippingInfo.fullName}
+                    onSuccess={handlePaymentSuccess}
+                    onBack={() => setCurrentStep(1)}
+                  />
+                </Elements>
               )}
             </div>
           )}
@@ -362,8 +399,8 @@ export function CheckoutPage({ cartItems, onUpdateQuantity, onRemoveItem, onOrde
                 <div className="flex items-center gap-3">
                   <Lock className="h-8 w-8 text-green-600" />
                   <div className="text-sm">
-                    <p className="font-semibold">DimePay Payment</p>
-                    <p className="text-gray-600">Payment confirmed and secured by DimePay</p>
+                    <p className="font-semibold">Stripe Payment</p>
+                    <p className="text-gray-600">Payment confirmed and secured by Stripe</p>
                   </div>
                 </div>
               </div>

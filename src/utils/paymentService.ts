@@ -13,6 +13,8 @@ import { loadStripe, Stripe, StripeElements } from '@stripe/stripe-js';
 // Stripe publishable key - replace with your actual key
 // For testing, use: pk_test_51xxxxx...
 const STRIPE_PUBLISHABLE_KEY = import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY || '';
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || '';
+const PAYMENT_INTENT_URL = `${SUPABASE_URL}/functions/v1/create-payment-intent`;
 
 let stripePromise: Promise<Stripe | null> | null = null;
 
@@ -35,7 +37,7 @@ export const getStripe = (): Promise<Stripe | null> => {
  * Check if Stripe is properly configured
  */
 export const isStripeConfigured = (): boolean => {
-  return !!STRIPE_PUBLISHABLE_KEY;
+  return !!STRIPE_PUBLISHABLE_KEY && !!SUPABASE_URL;
 };
 
 export interface PaymentDetails {
@@ -60,9 +62,11 @@ export interface PaymentResponse {
  */
 export const createPaymentIntent = async (details: PaymentDetails): Promise<PaymentResponse> => {
   try {
-    // TODO: Replace this with your actual backend endpoint
-    // This should call your server which then calls Stripe's API
-    const response = await fetch('/api/create-payment-intent', {
+    if (!SUPABASE_URL) {
+      throw new Error('Supabase URL is not configured');
+    }
+
+    const response = await fetch(PAYMENT_INTENT_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -167,6 +171,8 @@ export const formatAmount = (amountInCents: number, currency: string = 'USD'): s
 export const toCents = (amount: number): number => {
   return Math.round(amount * 100);
 };
+
+export const getPaymentIntentUrl = (): string => PAYMENT_INTENT_URL;
 
 /**
  * Test card numbers for Stripe testing:
