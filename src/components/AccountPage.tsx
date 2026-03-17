@@ -13,6 +13,7 @@ import { ordersService } from '../utils/ordersService';
 import { config } from '../utils/config';
 import { wishlistService } from '../utils/wishlistService';
 import { userService } from '../utils/userService';
+import { userNotificationPreferencesService } from '../utils/userNotificationPreferencesService';
 import { toast } from 'sonner';
 
 interface AccountPageProps {
@@ -151,6 +152,16 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
         ...prev,
         wishlistItems: wishlistCount
       }));
+
+      const notificationPreferences = await userNotificationPreferencesService.get();
+      if (notificationPreferences) {
+        setNotifications({
+          orderUpdates: notificationPreferences.order_updates,
+          promotions: notificationPreferences.promotions,
+          newsletter: notificationPreferences.newsletter,
+          smsAlerts: notificationPreferences.sms_alerts,
+        });
+      }
 
       console.log('✅ User data loaded successfully');
     } catch (error) {
@@ -293,9 +304,21 @@ export function AccountPage({ onNavigateToOrders, onNavigateToWishlist, isAdmin,
     }
   };
 
-  const handleSaveNotifications = (e: React.FormEvent) => {
+  const handleSaveNotifications = async (e: React.FormEvent) => {
     e.preventDefault();
-    alert('Notification preferences updated successfully!');
+
+    try {
+      await userNotificationPreferencesService.save({
+        order_updates: notifications.orderUpdates,
+        promotions: notifications.promotions,
+        newsletter: notifications.newsletter,
+        sms_alerts: notifications.smsAlerts,
+      });
+      toast.success('Notification preferences updated successfully!');
+    } catch (error) {
+      console.error('❌ Error updating notification preferences:', error);
+      toast.error('Failed to update notification preferences');
+    }
   };
 
   return (

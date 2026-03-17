@@ -5,6 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
 const formatCurrency = (amount: number, currency: string) =>
@@ -88,6 +89,14 @@ serve(async (req) => {
     const adminRecipients = Array.isArray(settings.admin_emails)
       ? settings.admin_emails.filter(Boolean)
       : [];
+    const { data: customerPreferences } = payload.userId
+      ? await supabaseAdmin
+          .from('user_notification_preferences')
+          .select('order_updates')
+          .eq('user_id', payload.userId)
+          .single()
+      : { data: null };
+    const shouldEmailCustomer = customerPreferences?.order_updates ?? true;
 
     const supplierMap = new Map<string, typeof orderItems>();
     for (const route of routes || []) {
@@ -174,6 +183,14 @@ serve(async (req) => {
       );
     }
 
+    if (shouldEmailCustomer && payload.customer?.email) {
+      await sendEmail(
+        [payload.customer.email],
+        `Your order receipt: ${payload.orderNumber}`,
+        buildHtml('admin', orderItems)
+      );
+    }
+
     for (const [email, items] of supplierMap.entries()) {
       const uniqueItems = items.filter(
         (item, index, all) =>
@@ -191,6 +208,7 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         adminRecipientCount: adminRecipients.length,
+        customerRecipientCount: shouldEmailCustomer && payload.customer?.email ? 1 : 0,
         supplierRecipientCount: supplierMap.size,
       }),
       {

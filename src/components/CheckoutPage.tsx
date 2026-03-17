@@ -167,6 +167,7 @@ export function CheckoutPage({ cartItems, onUpdateQuantity, onRemoveItem, onOrde
 
       try {
         await orderNotificationService.sendOrderCompleteNotifications({
+          userId: user.id,
           orderNumber: order.order_number,
           subtotal,
           tax,

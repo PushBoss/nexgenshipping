@@ -5,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, PUT, OPTIONS',
 };
 
 serve(async (req) => {
@@ -35,61 +35,48 @@ serve(async (req) => {
       });
     }
 
-    const { data: profile } = await supabaseAdmin
-      .from('user_profiles')
-      .select('is_admin')
-      .eq('id', authData.user.id)
-      .single();
-
-    if (!profile?.is_admin) {
-      return new Response(JSON.stringify({ error: 'Forbidden' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-
     if (req.method === 'GET') {
-      const { data: orders, error } = await supabaseAdmin
-        .from('orders')
-        .select(`
-          *,
-          items:order_items(*)
-        `)
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabaseAdmin
+        .from('user_notification_preferences')
+        .select('order_updates, promotions, newsletter, sms_alerts')
+        .eq('user_id', authData.user.id)
+        .single();
 
-      if (error) throw error;
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
 
-      return new Response(JSON.stringify({ orders: orders || [] }), {
+      return new Response(JSON.stringify({
+        preferences: data || {
+          order_updates: true,
+          promotions: true,
+          newsletter: false,
+          sms_alerts: false,
+        },
+      }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    if (req.method === 'PATCH') {
-      const { orderId, status, tracking_number, estimated_delivery } = await req.json();
-      if (!orderId) throw new Error('Order ID is required');
-
-      const updateData: Record<string, unknown> = {
-        updated_at: new Date().toISOString(),
-      };
-
-      if (status) updateData.status = status;
-      if (tracking_number !== undefined) updateData.tracking_number = tracking_number;
-      if (estimated_delivery !== undefined) updateData.estimated_delivery = estimated_delivery;
-
-      const { data: order, error } = await supabaseAdmin
-        .from('orders')
-        .update(updateData)
-        .eq('id', orderId)
-        .select(`
-          *,
-          items:order_items(*)
-        `)
+    if (req.method === 'PUT') {
+      const payload = await req.json();
+      const { data, error } = await supabaseAdmin
+        .from('user_notification_preferences')
+        .upsert({
+          user_id: authData.user.id,
+          order_updates: !!payload.order_updates,
+          promotions: !!payload.promotions,
+          newsletter: !!payload.newsletter,
+          sms_alerts: !!payload.sms_alerts,
+          updated_at: new Date().toISOString(),
+        })
+        .select('order_updates, promotions, newsletter, sms_alerts')
         .single();
 
       if (error) throw error;
 
-      return new Response(JSON.stringify({ order }), {
+      return new Response(JSON.stringify({ preferences: data }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
@@ -100,8 +87,8 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error: any) {
-    console.error('Admin orders error:', error);
-    return new Response(JSON.stringify({ error: error.message || 'Failed to manage orders' }), {
+    console.error('User notification preferences error:', error);
+    return new Response(JSON.stringify({ error: error.message || 'Failed to manage notification preferences' }), {
       status: 400,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

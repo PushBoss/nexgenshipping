@@ -175,7 +175,7 @@ export function OrdersPage({ onProductClick }: OrdersPageProps) {
     );
   };
 
-  const downloadReceipt = (order: Order) => {
+  const openReceiptPdf = (order: Order) => {
     const receiptHtml = `
       <!doctype html>
       <html>
@@ -250,15 +250,16 @@ export function OrdersPage({ onProductClick }: OrdersPageProps) {
       </html>
     `;
 
-    const blob = new Blob([receiptHtml], { type: 'text/html;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `receipt-${order.orderNumber}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+    const receiptWindow = window.open('', '_blank', 'width=900,height=700');
+    if (!receiptWindow) {
+      return;
+    }
+
+    receiptWindow.document.open();
+    receiptWindow.document.write(receiptHtml);
+    receiptWindow.document.close();
+    receiptWindow.focus();
+    receiptWindow.print();
   };
 
   const allOrders = orders;
@@ -360,8 +361,8 @@ export function OrdersPage({ onProductClick }: OrdersPageProps) {
               <Button variant="outline" className="flex-1" onClick={() => setSelectedOrder(order)}>
                 View Details
               </Button>
-              <Button variant="outline" className="flex-1" onClick={() => downloadReceipt(order)}>
-                Download Receipt
+              <Button variant="outline" className="flex-1" onClick={() => openReceiptPdf(order)}>
+                Save PDF Receipt
               </Button>
             </div>
           </Card>
@@ -470,8 +471,8 @@ export function OrdersPage({ onProductClick }: OrdersPageProps) {
                     </div>
 
                     <div className="flex justify-end">
-                      <Button variant="outline" onClick={() => downloadReceipt(selectedOrder)}>
-                        Download Receipt
+                      <Button variant="outline" onClick={() => openReceiptPdf(selectedOrder)}>
+                        Save PDF Receipt
                       </Button>
                     </div>
                   </div>
