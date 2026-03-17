@@ -3213,9 +3213,9 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
           <TabsContent value="payment-settings">
             <Card>
               <CardHeader>
-                <CardTitle>DimePay Payment Gateway Settings</CardTitle>
+                <CardTitle>Payment Settings</CardTitle>
                 <CardDescription>
-                  Configure your DimePay payment gateway credentials and settings
+                  Manage payment configuration and stored gateway credentials
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -3242,16 +3242,16 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                       />
                     </div>
 
-                    {/* DimePay Credentials */}
+                    {/* Gateway Credentials */}
                     <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">DimePay Credentials</h3>
+                      <h3 className="text-lg font-semibold">Gateway Credentials</h3>
 
                       <div className="space-y-2">
                         <Label htmlFor="merchant_id">Merchant ID *</Label>
                         <Input
                           id="merchant_id"
                           type="text"
-                          placeholder="Enter your DimePay Merchant ID"
+                          placeholder="Enter your merchant ID"
                           value={paymentFormData.merchant_id}
                           onChange={(e) =>
                             setPaymentFormData({ ...paymentFormData, merchant_id: e.target.value })
@@ -3264,7 +3264,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                         <Input
                           id="secret_key"
                           type="password"
-                          placeholder="Enter your DimePay Secret Key"
+                          placeholder="Enter your secret key"
                           value={paymentFormData.secret_key}
                           onChange={(e) =>
                             setPaymentFormData({ ...paymentFormData, secret_key: e.target.value })
@@ -3280,7 +3280,7 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                         <Input
                           id="client_key"
                           type="password"
-                          placeholder="Enter your DimePay Client Key"
+                          placeholder="Enter your client key"
                           value={paymentFormData.client_key}
                           onChange={(e) =>
                             setPaymentFormData({ ...paymentFormData, client_key: e.target.value })
