@@ -1,4 +1,5 @@
 import { loadStripe, Stripe, StripeElements } from '@stripe/stripe-js';
+import { publicAnonKey } from './supabase/info';
 
 /**
  * Payment Service - Handles Stripe payment processing
@@ -70,12 +71,23 @@ export const createPaymentIntent = async (details: PaymentDetails): Promise<Paym
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        'apikey': publicAnonKey,
+        'Authorization': `Bearer ${publicAnonKey}`,
       },
       body: JSON.stringify(details),
     });
 
     if (!response.ok) {
-      throw new Error('Failed to create payment intent');
+      let errorMessage = 'Failed to create payment intent';
+
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.error || errorData.message || errorMessage;
+      } catch {
+        // Keep the fallback error message if the response body is not JSON.
+      }
+
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
