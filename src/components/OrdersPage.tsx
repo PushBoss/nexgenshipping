@@ -7,6 +7,13 @@ import { useState, useEffect } from 'react';
 import { ordersService, OrderWithItems } from '../utils/ordersService';
 import { authService } from '../utils/authService';
 import { config } from '../utils/config';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from './ui/dialog';
 
 interface Order {
   id: string;
@@ -14,6 +21,19 @@ interface Order {
   date: string;
   status: 'delivered' | 'in-transit' | 'processing' | 'cancelled' | 'confirmed' | 'refunded';
   total: number;
+  subtotal: number;
+  tax: number;
+  shippingCost: number;
+  shippingMethod?: string;
+  paymentStatus: string;
+  shippingFullName: string;
+  shippingEmail: string;
+  shippingPhone?: string;
+  shippingAddress: string;
+  shippingCity: string;
+  shippingState: string;
+  shippingZipCode: string;
+  shippingCountry: string;
   items: {
     id: string;
     name: string;
@@ -33,6 +53,7 @@ export function OrdersPage({ onProductClick }: OrdersPageProps) {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     loadOrders();
@@ -75,6 +96,19 @@ export function OrdersPage({ onProductClick }: OrdersPageProps) {
         }),
         status: order.status === 'confirmed' ? 'processing' : order.status as Order['status'],
         total: order.total,
+        subtotal: order.subtotal,
+        tax: order.tax,
+        shippingCost: order.shipping_cost,
+        shippingMethod: order.shipping_method || undefined,
+        paymentStatus: order.payment_status,
+        shippingFullName: order.shipping_full_name,
+        shippingEmail: order.shipping_email,
+        shippingPhone: order.shipping_phone || undefined,
+        shippingAddress: order.shipping_address,
+        shippingCity: order.shipping_city,
+        shippingState: order.shipping_state,
+        shippingZipCode: order.shipping_zip_code,
+        shippingCountry: order.shipping_country,
         trackingNumber: order.tracking_number,
         estimatedDelivery: order.estimated_delivery ? new Date(order.estimated_delivery).toLocaleDateString('en-US', {
           year: 'numeric',
@@ -139,6 +173,92 @@ export function OrdersPage({ onProductClick }: OrdersPageProps) {
         {labels[status]}
       </Badge>
     );
+  };
+
+  const downloadReceipt = (order: Order) => {
+    const receiptHtml = `
+      <!doctype html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <title>Receipt ${order.orderNumber}</title>
+          <style>
+            body { font-family: Arial, sans-serif; padding: 24px; color: #111827; }
+            h1, h2, h3 { margin: 0 0 12px 0; }
+            .row { display: flex; justify-content: space-between; margin: 6px 0; }
+            .section { margin-top: 24px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+            th, td { text-align: left; padding: 10px; border-bottom: 1px solid #e5e7eb; }
+            .muted { color: #6b7280; }
+          </style>
+        </head>
+        <body>
+          <h1>NEX-GEN Shipping Receipt</h1>
+          <div class="section">
+            <div class="row"><strong>Order</strong><span>${order.orderNumber}</span></div>
+            <div class="row"><strong>Date</strong><span>${order.date}</span></div>
+            <div class="row"><strong>Status</strong><span>${order.status}</span></div>
+            <div class="row"><strong>Payment</strong><span>${order.paymentStatus}</span></div>
+          </div>
+
+          <div class="section">
+            <h3>Customer</h3>
+            <div>${order.shippingFullName}</div>
+            <div class="muted">${order.shippingEmail}</div>
+            <div class="muted">${order.shippingPhone || ''}</div>
+          </div>
+
+          <div class="section">
+            <h3>Shipping Address</h3>
+            <div>${order.shippingAddress}</div>
+            <div>${order.shippingCity}, ${order.shippingState} ${order.shippingZipCode}</div>
+            <div>${order.shippingCountry}</div>
+            <div class="muted">Method: ${order.shippingMethod || 'standard'}</div>
+          </div>
+
+          <div class="section">
+            <h3>Items</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Item</th>
+                  <th>Qty</th>
+                  <th>Unit Price</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${order.items.map((item) => `
+                  <tr>
+                    <td>${item.name}</td>
+                    <td>${item.quantity}</td>
+                    <td>$${item.price.toFixed(2)}</td>
+                    <td>$${(item.price * item.quantity).toFixed(2)}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="section">
+            <div class="row"><strong>Subtotal</strong><span>$${order.subtotal.toFixed(2)}</span></div>
+            <div class="row"><strong>Tax</strong><span>$${order.tax.toFixed(2)}</span></div>
+            <div class="row"><strong>Shipping</strong><span>$${order.shippingCost.toFixed(2)}</span></div>
+            <div class="row"><strong>Total</strong><span>$${order.total.toFixed(2)}</span></div>
+          </div>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob([receiptHtml], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `receipt-${order.orderNumber}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   const allOrders = orders;
@@ -237,8 +357,11 @@ export function OrdersPage({ onProductClick }: OrdersPageProps) {
                   </Button>
                 </>
               )}
-              <Button variant="outline" className="flex-1">
+              <Button variant="outline" className="flex-1" onClick={() => setSelectedOrder(order)}>
                 View Details
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => downloadReceipt(order)}>
+                Download Receipt
               </Button>
             </div>
           </Card>
@@ -272,25 +395,91 @@ export function OrdersPage({ onProductClick }: OrdersPageProps) {
           </Button>
         </div>
       ) : (
-        <Tabs defaultValue="all" className="w-full">
-          <TabsList className="grid w-full md:w-auto md:inline-grid grid-cols-3 mb-6">
-            <TabsTrigger value="all">All Orders ({allOrders.length})</TabsTrigger>
-            <TabsTrigger value="active">Active ({activeOrders.length})</TabsTrigger>
-            <TabsTrigger value="completed">Completed ({completedOrders.length})</TabsTrigger>
-          </TabsList>
+        <>
+          <Tabs defaultValue="all" className="w-full">
+            <TabsList className="grid w-full md:w-auto md:inline-grid grid-cols-3 mb-6">
+              <TabsTrigger value="all">All Orders ({allOrders.length})</TabsTrigger>
+              <TabsTrigger value="active">Active ({activeOrders.length})</TabsTrigger>
+              <TabsTrigger value="completed">Completed ({completedOrders.length})</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="all">
-            {renderOrders(allOrders)}
-          </TabsContent>
+            <TabsContent value="all">
+              {renderOrders(allOrders)}
+            </TabsContent>
 
-          <TabsContent value="active">
-            {renderOrders(activeOrders)}
-          </TabsContent>
+            <TabsContent value="active">
+              {renderOrders(activeOrders)}
+            </TabsContent>
 
-          <TabsContent value="completed">
-            {renderOrders(completedOrders)}
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="completed">
+              {renderOrders(completedOrders)}
+            </TabsContent>
+          </Tabs>
+
+          <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
+            <DialogContent className="sm:max-w-2xl">
+              {selectedOrder && (
+                <>
+                  <DialogHeader>
+                    <DialogTitle>Order {selectedOrder.orderNumber}</DialogTitle>
+                    <DialogDescription>
+                      Placed on {selectedOrder.date}
+                    </DialogDescription>
+                  </DialogHeader>
+
+                  <div className="space-y-6">
+                    <div className="grid md:grid-cols-2 gap-4 text-sm">
+                      <div className="space-y-1">
+                        <p className="font-semibold text-[#003366]">Customer</p>
+                        <p>{selectedOrder.shippingFullName}</p>
+                        <p>{selectedOrder.shippingEmail}</p>
+                        {selectedOrder.shippingPhone && <p>{selectedOrder.shippingPhone}</p>}
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-semibold text-[#003366]">Shipping</p>
+                        <p>{selectedOrder.shippingAddress}</p>
+                        <p>{selectedOrder.shippingCity}, {selectedOrder.shippingState} {selectedOrder.shippingZipCode}</p>
+                        <p>{selectedOrder.shippingCountry}</p>
+                        <p>Method: {selectedOrder.shippingMethod || 'standard'}</p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <p className="font-semibold text-[#003366]">Items</p>
+                      {selectedOrder.items.map((item) => (
+                        <div key={item.id} className="flex items-center justify-between gap-4 text-sm border rounded-lg p-3">
+                          <div>
+                            <p className="font-medium">{item.name}</p>
+                            <p className="text-gray-600">Qty: {item.quantity}</p>
+                          </div>
+                          <div className="text-right">
+                            <p>${item.price.toFixed(2)} each</p>
+                            <p className="font-semibold">${(item.price * item.quantity).toFixed(2)}</p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="rounded-lg bg-gray-50 p-4 space-y-2 text-sm">
+                      <div className="flex justify-between"><span>Status</span><span>{selectedOrder.status}</span></div>
+                      <div className="flex justify-between"><span>Payment</span><span>{selectedOrder.paymentStatus}</span></div>
+                      <div className="flex justify-between"><span>Subtotal</span><span>${selectedOrder.subtotal.toFixed(2)}</span></div>
+                      <div className="flex justify-between"><span>Tax</span><span>${selectedOrder.tax.toFixed(2)}</span></div>
+                      <div className="flex justify-between"><span>Shipping</span><span>${selectedOrder.shippingCost.toFixed(2)}</span></div>
+                      <div className="flex justify-between font-semibold"><span>Total</span><span>${selectedOrder.total.toFixed(2)}</span></div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <Button variant="outline" onClick={() => downloadReceipt(selectedOrder)}>
+                        Download Receipt
+                      </Button>
+                    </div>
+                  </div>
+                </>
+              )}
+            </DialogContent>
+          </Dialog>
+        </>
       )}
     </div>
   );
