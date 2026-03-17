@@ -155,7 +155,10 @@ export const ordersService = {
   /**
    * Create a new order
    */
-  async create(orderData: Omit<Order, 'id' | 'created_at' | 'updated_at'>, items: Omit<OrderItem, 'id' | 'order_id' | 'created_at'>[]): Promise<OrderWithItems> {
+  async create(
+    orderData: Omit<Order, 'id' | 'created_at' | 'updated_at' | 'order_number'> & { order_number?: string },
+    items: Omit<OrderItem, 'id' | 'order_id' | 'created_at'>[]
+  ): Promise<OrderWithItems> {
     if (!config.useSupabase) {
       throw new Error('Supabase is not enabled');
     }

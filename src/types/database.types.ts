@@ -109,6 +109,58 @@ export interface Database {
           updated_at?: string;
         };
       };
+      order_notification_settings: {
+        Row: {
+          id: string;
+          notifications_enabled: boolean;
+          admin_emails: string[];
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          notifications_enabled?: boolean;
+          admin_emails?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          notifications_enabled?: boolean;
+          admin_emails?: string[];
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      supplier_notification_routes: {
+        Row: {
+          id: string;
+          email: string;
+          category_id: string;
+          subcategory_id: string | null;
+          is_enabled: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          category_id: string;
+          subcategory_id?: string | null;
+          is_enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          category_id?: string;
+          subcategory_id?: string | null;
+          is_enabled?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       categories: {
         Row: {
           id: string;

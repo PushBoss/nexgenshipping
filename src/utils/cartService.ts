@@ -17,6 +17,8 @@ export interface CartItem {
     price: number;
     image_url: string;
     category: string;
+    category_id?: string;
+    subcategory_id?: string;
   };
 }
 
@@ -33,7 +35,7 @@ export const cartService = {
         .from('cart_items')
         .select(`
           *,
-          product:products(name, price, image_url, category)
+          product:products(name, price, image_url, category, category_id, subcategory_id)
         `)
         .eq('user_id', userId)
         .order('created_at', { ascending: false });

@@ -14,12 +14,16 @@ import { Currency, convertCurrency, formatCurrency } from '../utils/currencyServ
 import { toast } from 'sonner';
 import { StripePaymentForm } from './StripePaymentForm';
 import { createPaymentIntent, getStripe, isStripeConfigured, toCents } from '../utils/paymentService';
+import { authService } from '../utils/authService';
+import { cartService } from '../utils/cartService';
+import { ordersService } from '../utils/ordersService';
+import { orderNotificationService } from '../utils/orderNotificationService';
 
 interface CheckoutPageProps {
   cartItems: CartItem[];
   onUpdateQuantity: (cartItemId: string, quantity: number) => void;
   onRemoveItem: (cartItemId: string) => void;
-  onOrderComplete: () => void;
+  onOrderComplete: () => void | Promise<void>;
   selectedCurrency?: Currency;
 }
 
@@ -30,6 +34,8 @@ export function CheckoutPage({ cartItems, onUpdateQuantity, onRemoveItem, onOrde
   const [clientSecret, setClientSecret] = useState('');
   const [stripePromise, setStripePromise] = useState<Promise<Stripe | null> | null>(null);
   const [isPreparingPayment, setIsPreparingPayment] = useState(false);
+  const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | undefined>(undefined);
   
   const [shippingInfo, setShippingInfo] = useState({
     fullName: '',
@@ -104,17 +110,109 @@ export function CheckoutPage({ cartItems, onUpdateQuantity, onRemoveItem, onOrde
     }
   };
 
-  const handlePaymentSuccess = () => {
+  const handlePaymentSuccess = (confirmedPaymentIntentId?: string) => {
+    setPaymentIntentId(confirmedPaymentIntentId);
     setCurrentStep(3);
     toast.success('Payment confirmed!');
   };
 
-  const handlePlaceOrder = () => {
-    toast.success('Order placed successfully! Thank you for your purchase.');
-    setTimeout(() => {
-      onOrderComplete();
-      navigate('/');
-    }, 2000);
+  const handlePlaceOrder = async () => {
+    if (cartItems.length === 0) {
+      toast.error('Your cart is empty');
+      return;
+    }
+
+    setIsPlacingOrder(true);
+
+    try {
+      const user = await authService.getCurrentUser();
+      if (!user) {
+        throw new Error('Please sign in again to complete your order');
+      }
+
+      const order = await ordersService.create(
+        {
+          user_id: user.id,
+          status: 'confirmed',
+          subtotal,
+          tax,
+          shipping_cost: shippingCost,
+          total,
+          shipping_method: shippingMethod,
+          shipping_full_name: shippingInfo.fullName,
+          shipping_email: shippingInfo.email,
+          shipping_phone: shippingInfo.phone,
+          shipping_address: shippingInfo.address,
+          shipping_city: shippingInfo.city,
+          shipping_state: shippingInfo.state,
+          shipping_zip_code: shippingInfo.zipCode,
+          shipping_country: 'United States',
+          payment_method: 'credit-card',
+          payment_status: 'completed',
+          payment_transaction_id: paymentIntentId || null,
+        },
+        cartItems.map((item) => ({
+          product_id: item.product_id,
+          product_name: item.product?.name || 'Product',
+          product_image_url: item.product?.image_url,
+          quantity: item.quantity,
+          unit_price: item.product ? convertCurrency(item.product.price, 'USD', selectedCurrency) : 0,
+          total_price: item.product
+            ? convertCurrency(item.product.price, 'USD', selectedCurrency) * item.quantity
+            : 0,
+        }))
+      );
+
+      await cartService.clearCart(user.id);
+
+      try {
+        await orderNotificationService.sendOrderCompleteNotifications({
+          orderNumber: order.order_number,
+          subtotal,
+          tax,
+          shippingCost,
+          total,
+          currency: selectedCurrency,
+          customer: {
+            fullName: shippingInfo.fullName,
+            email: shippingInfo.email,
+            phone: shippingInfo.phone,
+          },
+          shipping: {
+            address: shippingInfo.address,
+            city: shippingInfo.city,
+            state: shippingInfo.state,
+            zipCode: shippingInfo.zipCode,
+            country: 'United States',
+            method: shippingMethod,
+          },
+          items: cartItems.map((item) => ({
+            productId: item.product_id,
+            productName: item.product?.name || 'Product',
+            productImageUrl: item.product?.image_url,
+            quantity: item.quantity,
+            unitPrice: item.product ? convertCurrency(item.product.price, 'USD', selectedCurrency) : 0,
+            totalPrice: item.product
+              ? convertCurrency(item.product.price, 'USD', selectedCurrency) * item.quantity
+              : 0,
+            category: item.product?.category || '',
+            categoryId: item.product?.category_id,
+            subcategoryId: item.product?.subcategory_id,
+          })),
+        });
+      } catch (notificationError) {
+        console.error('Order notifications failed:', notificationError);
+      }
+
+      await onOrderComplete();
+      toast.success(`Order ${order.order_number} placed successfully!`);
+      navigate('/orders');
+    } catch (error: any) {
+      console.error('Order placement failed:', error);
+      toast.error(error.message || 'Failed to place order');
+    } finally {
+      setIsPlacingOrder(false);
+    }
   };
 
   return (
@@ -438,14 +536,16 @@ export function CheckoutPage({ cartItems, onUpdateQuantity, onRemoveItem, onOrde
                   variant="outline"
                   onClick={() => setCurrentStep(2)}
                   className="flex-1"
+                  disabled={isPlacingOrder}
                 >
                   Back
                 </Button>
                 <Button
                   onClick={handlePlaceOrder}
+                  disabled={isPlacingOrder}
                   className="flex-1 bg-[#FFD814] hover:bg-[#F7CA00] text-gray-900 font-semibold"
                 >
-                  Place Order
+                  {isPlacingOrder ? 'Placing Order...' : 'Place Order'}
                 </Button>
               </div>
             </div>

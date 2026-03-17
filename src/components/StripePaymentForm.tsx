@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 
 interface StripePaymentFormProps {
   amount: number;
-  onSuccess: () => void;
+  onSuccess: (paymentIntentId?: string) => void;
   onBack: () => void;
   customerEmail: string;
   customerName: string;
@@ -62,7 +62,7 @@ export function StripePaymentForm({
 
       if (paymentIntent && paymentIntent.status === 'succeeded') {
         toast.success('Payment successful!');
-        onSuccess();
+        onSuccess(paymentIntent.id);
       } else {
         toast.error('Payment was not completed');
         setIsProcessing(false);

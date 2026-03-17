@@ -566,7 +566,10 @@ function AppContent() {
             onUpdateQuantity={handleUpdateCartQuantity}
             onRemoveItem={handleRemoveFromCart}
             selectedCurrency={selectedCurrency}
-            onOrderComplete={() => navigate('/orders')}
+            onOrderComplete={async () => {
+              setCartItems([]);
+              navigate('/orders');
+            }}
           />
         } />
 

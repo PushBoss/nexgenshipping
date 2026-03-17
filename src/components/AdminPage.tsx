@@ -11,7 +11,7 @@ import { Badge } from './ui/badge';
 import { Textarea } from './ui/textarea';
 import { toast } from 'sonner';
 import Papa from 'papaparse';
-import { Plus, Edit, Trash2, Package, Tag, TrendingUp, Percent, Search, Filter, Upload, Download, FileUp, CheckCircle2, AlertCircle, XCircle, Link2, Image, Users, CreditCard, Settings, RefreshCw, ChevronLeft, ChevronRight, DollarSign } from 'lucide-react';
+import { Plus, Edit, Trash2, Package, Tag, TrendingUp, Percent, Search, Filter, Upload, Download, FileUp, CheckCircle2, AlertCircle, XCircle, Link2, Image, Users, CreditCard, Settings, RefreshCw, ChevronLeft, ChevronRight, DollarSign, Bell } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from './ui/dialog';
 import { Alert, AlertDescription } from './ui/alert';
 import { SupabaseStatus } from './SupabaseStatus';
@@ -24,6 +24,11 @@ import { paymentGatewayService, PaymentGatewaySettings } from '../utils/paymentG
 import { currencyRatesService, CurrencyRate } from '../utils/currencyRatesService';
 import { Switch } from './ui/switch';
 import { publicAnonKey } from '../utils/supabase/info';
+import { PRODUCT_CATEGORIES } from './CategoryBrowser';
+import {
+  orderNotificationSettingsService,
+  OrderNotificationSettings,
+} from '../utils/orderNotificationSettingsService';
 
 interface AdminPageProps {
   products: Product[];
@@ -87,6 +92,24 @@ export function AdminPage({
   });
   const [isLoadingPaymentSettings, setIsLoadingPaymentSettings] = useState(false);
   const [isSavingPaymentSettings, setIsSavingPaymentSettings] = useState(false);
+
+  // Order Notification Settings State
+  const [notificationSettings, setNotificationSettings] = useState<OrderNotificationSettings | null>(null);
+  const [notificationFormData, setNotificationFormData] = useState({
+    notifications_enabled: false,
+    admin_emails: '',
+  });
+  const [supplierRoutes, setSupplierRoutes] = useState<
+    Array<{
+      id: string;
+      email: string;
+      category_id: string;
+      subcategory_id: string;
+      is_enabled: boolean;
+    }>
+  >([]);
+  const [isLoadingNotificationSettings, setIsLoadingNotificationSettings] = useState(false);
+  const [isSavingNotificationSettings, setIsSavingNotificationSettings] = useState(false);
 
   // Currency Rates State
   const [currencyRates, setCurrencyRates] = useState<CurrencyRate[]>([]);
@@ -193,6 +216,86 @@ export function AdminPage({
 
     loadCurrencyRates();
   }, []);
+
+  useEffect(() => {
+    const loadPaymentSettings = async () => {
+      try {
+        setIsLoadingPaymentSettings(true);
+        const settings = await paymentGatewayService.getSettings();
+        if (settings) {
+          setPaymentSettings(settings);
+          setPaymentFormData({
+            merchant_id: settings.merchant_id || '',
+            secret_key: settings.secret_key || '',
+            client_key: settings.client_key || '',
+            environment: settings.environment,
+            fee_handling: settings.fee_handling,
+            platform_fee_percentage: settings.platform_fee_percentage.toString(),
+            is_enabled: settings.is_enabled,
+          });
+        }
+      } catch (error) {
+        console.error('Failed to load payment settings:', error);
+      } finally {
+        setIsLoadingPaymentSettings(false);
+      }
+    };
+
+    loadPaymentSettings();
+  }, []);
+
+  useEffect(() => {
+    const loadNotificationSettings = async () => {
+      try {
+        setIsLoadingNotificationSettings(true);
+        const [settings, routes] = await Promise.all([
+          orderNotificationSettingsService.getSettings(),
+          orderNotificationSettingsService.getSupplierRoutes(),
+        ]);
+
+        setNotificationSettings(settings);
+        setNotificationFormData({
+          notifications_enabled: settings?.notifications_enabled || false,
+          admin_emails: (settings?.admin_emails || []).join('\n'),
+        });
+        setSupplierRoutes(
+          routes.map((route) => ({
+            id: route.id,
+            email: route.email,
+            category_id: route.category_id,
+            subcategory_id: route.subcategory_id || '',
+            is_enabled: route.is_enabled,
+          }))
+        );
+      } catch (error) {
+        console.error('Failed to load notification settings:', error);
+      } finally {
+        setIsLoadingNotificationSettings(false);
+      }
+    };
+
+    loadNotificationSettings();
+  }, []);
+
+  const categoryOptions = PRODUCT_CATEGORIES.flatMap((productCategory) =>
+    productCategory.categories.map((category) => ({
+      id: category.id,
+      label: `${productCategory.name} / ${category.name}`,
+    }))
+  );
+
+  const subcategoryOptionsByCategory = products.reduce<Record<string, string[]>>((acc, product) => {
+    if (!product.categoryId || !product.subcategoryId) {
+      return acc;
+    }
+
+    const existing = acc[product.categoryId] || [];
+    if (!existing.includes(product.subcategoryId)) {
+      acc[product.categoryId] = [...existing, product.subcategoryId];
+    }
+
+    return acc;
+  }, {});
 
   // Helper: upload image to Supabase storage with unique filename
   const uploadImageToStorage = async (imageUrl: string, productName: string, index?: number): Promise<string> => {
@@ -1284,6 +1387,10 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
             <TabsTrigger value="payment-settings" className="flex-shrink-0">
               <CreditCard className="h-4 w-4 mr-2" />
               Payment
+            </TabsTrigger>
+            <TabsTrigger value="notifications-settings" className="flex-shrink-0">
+              <Bell className="h-4 w-4 mr-2" />
+              Notifications
             </TabsTrigger>
           </TabsList>
 
@@ -3318,6 +3425,304 @@ Product Name Only Example - All Other Fields Optional!,,,,,,,,,,,,`;
                           </AlertDescription>
                         </Alert>
                       )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="notifications-settings">
+            <Card>
+              <CardHeader>
+                <CardTitle>Order Completion Notifications</CardTitle>
+                <CardDescription>
+                  Configure admin recipients and route supplier emails by category and subcategory.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {isLoadingNotificationSettings ? (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#003366] mx-auto mb-4"></div>
+                    <p className="text-gray-600">Loading notification settings...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-6">
+                    <div className="flex items-center justify-between p-4 border rounded-lg">
+                      <div>
+                        <Label className="text-base font-medium">Enable Order Notifications</Label>
+                        <p className="text-sm text-gray-500 mt-1">
+                          Send notification emails to admins and matched suppliers when an order is completed.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={notificationFormData.notifications_enabled}
+                        onCheckedChange={(checked) =>
+                          setNotificationFormData({ ...notificationFormData, notifications_enabled: checked })
+                        }
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="admin_notification_emails">Admin Recipient Emails</Label>
+                      <Textarea
+                        id="admin_notification_emails"
+                        placeholder="one@example.com&#10;two@example.com"
+                        value={notificationFormData.admin_emails}
+                        onChange={(e) =>
+                          setNotificationFormData({
+                            ...notificationFormData,
+                            admin_emails: e.target.value,
+                          })
+                        }
+                        rows={4}
+                      />
+                      <p className="text-xs text-gray-500">
+                        Enter one email per line. These recipients receive every completed order notification.
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <h3 className="text-lg font-semibold">Supplier Routes</h3>
+                          <p className="text-sm text-gray-500">
+                            Match supplier emails to the product category or subcategory they should be notified about.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() =>
+                            setSupplierRoutes([
+                              ...supplierRoutes,
+                              {
+                                id: `new-${Date.now()}`,
+                                email: '',
+                                category_id: categoryOptions[0]?.id || '',
+                                subcategory_id: '',
+                                is_enabled: true,
+                              },
+                            ])
+                          }
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Supplier
+                        </Button>
+                      </div>
+
+                      {supplierRoutes.length === 0 ? (
+                        <div className="rounded-lg border border-dashed p-6 text-sm text-gray-500">
+                          No supplier notification routes configured yet.
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {supplierRoutes.map((route) => {
+                            const subcategoryOptions = subcategoryOptionsByCategory[route.category_id] || [];
+
+                            return (
+                              <div key={route.id} className="rounded-lg border p-4 space-y-4">
+                                <div className="flex items-center justify-between">
+                                  <Label className="text-base font-medium">Supplier Notification Route</Label>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    className="text-red-600 hover:text-red-700"
+                                    onClick={() =>
+                                      setSupplierRoutes(supplierRoutes.filter((supplierRoute) => supplierRoute.id !== route.id))
+                                    }
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Remove
+                                  </Button>
+                                </div>
+
+                                <div className="grid md:grid-cols-3 gap-4">
+                                  <div className="space-y-2">
+                                    <Label>Email</Label>
+                                    <Input
+                                      type="email"
+                                      placeholder="supplier@example.com"
+                                      value={route.email}
+                                      onChange={(e) =>
+                                        setSupplierRoutes(
+                                          supplierRoutes.map((supplierRoute) =>
+                                            supplierRoute.id === route.id
+                                              ? { ...supplierRoute, email: e.target.value }
+                                              : supplierRoute
+                                          )
+                                        )
+                                      }
+                                    />
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>Category</Label>
+                                    <Select
+                                      value={route.category_id}
+                                      onValueChange={(value) =>
+                                        setSupplierRoutes(
+                                          supplierRoutes.map((supplierRoute) =>
+                                            supplierRoute.id === route.id
+                                              ? {
+                                                  ...supplierRoute,
+                                                  category_id: value,
+                                                  subcategory_id: '',
+                                                }
+                                              : supplierRoute
+                                          )
+                                        )
+                                      }
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Select category" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {categoryOptions.map((option) => (
+                                          <SelectItem key={option.id} value={option.id}>
+                                            {option.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+
+                                  <div className="space-y-2">
+                                    <Label>Subcategory</Label>
+                                    <Select
+                                      value={route.subcategory_id || '__all__'}
+                                      onValueChange={(value) =>
+                                        setSupplierRoutes(
+                                          supplierRoutes.map((supplierRoute) =>
+                                            supplierRoute.id === route.id
+                                              ? {
+                                                  ...supplierRoute,
+                                                  subcategory_id: value === '__all__' ? '' : value,
+                                                }
+                                              : supplierRoute
+                                          )
+                                        )
+                                      }
+                                    >
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="All subcategories" />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        <SelectItem value="__all__">All subcategories</SelectItem>
+                                        {subcategoryOptions.map((subcategoryId) => (
+                                          <SelectItem key={subcategoryId} value={subcategoryId}>
+                                            {subcategoryId}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                                  <div>
+                                    <Label className="font-medium">Route Enabled</Label>
+                                    <p className="text-xs text-gray-500">Disabled routes will be ignored during notification dispatch.</p>
+                                  </div>
+                                  <Switch
+                                    checked={route.is_enabled}
+                                    onCheckedChange={(checked) =>
+                                      setSupplierRoutes(
+                                        supplierRoutes.map((supplierRoute) =>
+                                          supplierRoute.id === route.id
+                                            ? { ...supplierRoute, is_enabled: checked }
+                                            : supplierRoute
+                                        )
+                                      )
+                                    }
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex justify-end gap-4 pt-4 border-t">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setNotificationFormData({
+                            notifications_enabled: notificationSettings?.notifications_enabled || false,
+                            admin_emails: (notificationSettings?.admin_emails || []).join('\n'),
+                          });
+                          orderNotificationSettingsService.getSupplierRoutes().then((routes) => {
+                            setSupplierRoutes(
+                              routes.map((route) => ({
+                                id: route.id,
+                                email: route.email,
+                                category_id: route.category_id,
+                                subcategory_id: route.subcategory_id || '',
+                                is_enabled: route.is_enabled,
+                              }))
+                            );
+                          });
+                        }}
+                      >
+                        Reset
+                      </Button>
+                      <Button
+                        onClick={async () => {
+                          const adminEmails = notificationFormData.admin_emails
+                            .split(/[\n,]+/)
+                            .map((email) => email.trim())
+                            .filter(Boolean);
+
+                          const invalidSupplierRoute = supplierRoutes.find(
+                            (route) => route.email.trim() === '' || route.category_id.trim() === ''
+                          );
+
+                          if (invalidSupplierRoute) {
+                            toast.error('Each supplier route needs an email and category');
+                            return;
+                          }
+
+                          setIsSavingNotificationSettings(true);
+                          try {
+                            const updatedSettings = await orderNotificationSettingsService.saveSettings({
+                              notifications_enabled: notificationFormData.notifications_enabled,
+                              admin_emails: adminEmails,
+                            });
+
+                            await orderNotificationSettingsService.replaceSupplierRoutes(
+                              supplierRoutes.map((route) => ({
+                                email: route.email.trim(),
+                                category_id: route.category_id,
+                                subcategory_id: route.subcategory_id || null,
+                                is_enabled: route.is_enabled,
+                              }))
+                            );
+
+                            const updatedRoutes = await orderNotificationSettingsService.getSupplierRoutes();
+                            setNotificationSettings(updatedSettings);
+                            setSupplierRoutes(
+                              updatedRoutes.map((route) => ({
+                                id: route.id,
+                                email: route.email,
+                                category_id: route.category_id,
+                                subcategory_id: route.subcategory_id || '',
+                                is_enabled: route.is_enabled,
+                              }))
+                            );
+
+                            toast.success('Notification settings saved successfully!');
+                          } catch (error) {
+                            console.error('Error saving notification settings:', error);
+                            toast.error('Failed to save notification settings');
+                          } finally {
+                            setIsSavingNotificationSettings(false);
+                          }
+                        }}
+                        disabled={isSavingNotificationSettings}
+                      >
+                        {isSavingNotificationSettings ? 'Saving...' : 'Save Notifications'}
+                      </Button>
+                    </div>
                   </div>
                 )}
               </CardContent>
