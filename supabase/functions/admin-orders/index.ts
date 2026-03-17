@@ -5,7 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, PATCH, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, POST, PATCH, OPTIONS',
 };
 
 serve(async (req) => {
@@ -65,8 +65,14 @@ serve(async (req) => {
       });
     }
 
-    if (req.method === 'PATCH') {
-      const { orderId, status, tracking_number, estimated_delivery } = await req.json();
+    if (req.method === 'PATCH' || req.method === 'POST') {
+      const { action, orderId, status, tracking_number, estimated_delivery } = await req.json();
+      if (req.method === 'POST' && action !== 'update-order') {
+        return new Response(JSON.stringify({ error: 'Method not allowed' }), {
+          status: 405,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       if (!orderId) throw new Error('Order ID is required');
 
       const updateData: Record<string, unknown> = {

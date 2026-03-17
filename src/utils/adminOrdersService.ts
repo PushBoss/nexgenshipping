@@ -76,9 +76,9 @@ export const adminOrdersService = {
   }): Promise<AdminOrderRecord> {
     const headers = await getAuthHeaders();
     const response = await fetch(ADMIN_ORDERS_URL, {
-      method: 'PATCH',
+      method: 'POST',
       headers,
-      body: JSON.stringify({ orderId, ...updates }),
+      body: JSON.stringify({ action: 'update-order', orderId, ...updates }),
     });
 
     if (!response.ok) {
